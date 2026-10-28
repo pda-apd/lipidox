@@ -1,0 +1,37 @@
+<style>
+    /* Header must create a high stacking context so the Account dropdown
+       never sits under page content (hero sections, fixed action bars, cards). */
+    header.site-header {
+        position: relative;
+        z-index: 2100;
+    }
+    header.site-header .dropdown-menu {
+        z-index: 2101;
+    }
+</style>
+<header class="site-header bg-white shadow-sm py-2 mb-4">
+    <div class="container d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center gap-4">
+            <a href="./index.html">
+                <img src="./src/img/logo2.png" style="height: 35px;" alt="Logo">
+            </a>
+            <nav class="d-none d-md-block">
+                <ul class="nav">
+                    <li class="nav-item">
+                        <a href="./document.html" class="nav-link text-dark fw-semibold small">
+                            <i class="fa-solid fa-book me-1"></i> Documentation
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+
+        <div class="dropdown">
+            <button class="btn btn-sm btn-outline-dark dropdown-toggle rounded-pill px-3" data-bs-toggle="dropdown">
+                <i class="fa-solid fa-circle-user me-1"></i> Account
+            </button>
+            <ul id="author-menu-drd" class="dropdown-menu dropdown-menu-end shadow border-0">
+                </ul>
+        </div>
+    </div>
+</header>

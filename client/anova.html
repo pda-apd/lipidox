@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>ANOVA/Kruskal-Wallis - Analytic</title>
+    <link rel="icon" href="./src/img/logo1.png" type="image/png" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="./src/css/main.css" />
+    <style>
+        .config-panel { flex: 0 0 30%; padding-right: 0.75rem; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+        #analysis-setup-card { min-height: 0; overflow-y: auto; overflow-x: hidden; }
+        .results-panel { flex: 0 0 70%; display: flex; flex-direction: column; overflow: hidden; }
+        .run-section { margin-top: 1rem; }
+        .results-wrapper { flex-grow: 1; overflow: hidden; min-height: 0; display: grid; grid-template-rows: 1.2fr 0.8fr; gap: 0.5rem; }
+        .results-row-1 { display: flex; gap: 0.5rem; min-height: 0; }
+        .results-row-2 { min-height: 0; }
+        .result-card { background: #fff; border-radius: 10px; padding: 0.8rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; flex-direction: column; overflow: hidden; }
+        .table-xs { font-size: 0.6rem; }
+        .table-xs th, .table-xs td { padding: 3px 1px !important; }
+        .table-responsive-scroller { flex-grow: 1; overflow-y: auto; border: 1px solid #eee; box-sizing: border-box; }
+        .boxplot-card { flex: 1 1 100%; box-sizing: border-box; min-height: 0; }
+        .boxplot-container { flex-grow: 1; min-height: 0; width: 100%; position: relative; box-sizing: border-box; }
+        .manhattan-card { width: 100%; box-sizing: border-box; min-height: 0; }
+        .manhattan-container { width: 100%; flex-grow: 1; min-height: 0; position: relative; box-sizing: border-box; }
+        .normality-box { background: #e7f1ff; border-radius: 6px; padding: 8px; border-left: 3px solid #0d6efd; margin-top: 5px; }
+    </style>
+    <script type="module" src="./src/js/auth-gate.js"></script>
+</head>
+<body class="analysis-page">
+    <div id="header-placeholder"></div>
+    <div class="main-wrapper">
+        <div id="sidebar-placeholder"></div>
+        <main class="content-area">
+            <div class="config-panel">
+                <div class="setup-card" id="analysis-setup-card">
+                    <h6 class="fw-bold mb-2 text-primary"><i class="fa-solid fa-table-list me-2"></i>Multiple group comparison tests</h6>
+                    
+                    <div class="history-anchor">
+                        <button id="history-toggle" type="button" class="btn btn-outline-secondary btn-sm w-100">
+                            <i class="fa-solid fa-clock-rotate-left me-1"></i> History
+                        </button>
+                        <div id="history-popup" class="history-popup"></div>
+                    </div>
+
+                    <button class="section-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#anova-config-body" aria-expanded="true" aria-controls="anova-config-body">
+                        <span><i class="fa-solid fa-layer-group me-2 text-primary"></i>User Configuration</span>
+                        <i class="fa-solid fa-chevron-down"></i>
+                    </button>
+
+                    <div class="collapse show" id="anova-config-body">
+                        <div class="section-body">
+                            <div class="mb-3">
+                                <label class="extra-small fw-bold mb-1 text-muted uppercase">Analysis Name</label>
+                                <input type="text" id="analysis-name" class="form-control form-control-sm" placeholder="Enter analysis name">
+                            </div>
+                            <div class="config-mode-tabs mb-3" role="tablist" aria-label="Input mode">
+                                <button type="button" id="config-mode-manual" class="config-mode-tab active">Manual</button>
+                                <button type="button" id="config-mode-split" class="config-mode-tab">Split</button>
+                            </div>
+                            <div id="manual-config-section">
+                            <div class="mb-3">
+                                <label class="extra-small fw-bold mb-1 text-muted uppercase">1. Categorical Metadata (≥3 groups)</label>
+                                <select id="ana-target" class="form-select form-select-sm mb-2"></select>
+                            </div>
+                            </div>
+                            <div id="split-config-section" class="d-none"></div>
+                            <div class="mb-3">
+                                <label class="extra-small fw-bold mb-1 text-muted uppercase">2. Statistics Info</label>
+                                <div id="normality-info" class="p-2 bg-light rounded border extra-small normality-box">
+                                    Select a meta column to view groups and statistical decision rules.
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="extra-small fw-bold mb-1 text-muted uppercase">3. Test type</label>
+                                <select id="test-type" class="form-select form-select-sm extra-small">
+                                    <option value="auto" selected>Auto (normality-based)</option>
+                                    <option value="anova">One-way ANOVA (force)</option>
+                                    <option value="welch-anova">Welch ANOVA (force)</option>
+                                    <option value="kruskal-wallis">Kruskal-Wallis (force)</option>
+                                </select>
+                            </div>
+                            <div class="run-section">
+                                <button id="btn-run-analysis" class="btn btn-primary btn-sm w-100 fw-bold py-2 shadow-sm" disabled>RUN ANOVA/KW</button>
+                                <div id="run-analysis-status" class="status-line"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-3 pt-2 border-top">
+                        <div class="d-flex justify-content-between align-items-center mb-2 flex-shrink-0">
+                            <h6 class="fw-bold mb-0 text-primary small">Summary Table</h6>
+                            <div class="d-flex align-items-center gap-2">
+                                <span id="res-row-count" class="badge bg-light text-dark border">0 rows</span>
+                                <button class="btn btn-sm btn-outline-primary fw-bold extra-small" id="btn-dl-csv"><i class="fa-solid fa-download me-1"></i>CSV</button>
+                            </div>
+                        </div>
+                        <div class="row g-2 mb-2 flex-shrink-0">
+                            <div class="col-7">
+                                <label for="res-sort-filter" class="extra-small fw-bold mb-1 text-muted uppercase">Sort</label>
+                                <select id="res-sort-filter" class="form-select form-select-sm extra-small">
+                                    <option value="fdr_asc">Global FDR: Low to High</option>
+                                    <option value="fdr_desc">Global FDR: High to Low</option>
+                                    <option value="name_asc">Feature Name: A-Z</option>
+                                </select>
+                            </div>
+                            <div class="col-5">
+                                <label for="res-min-filter" class="extra-small fw-bold mb-1 text-muted uppercase">FDR <</label>
+                                <input id="res-min-filter" type="number" class="form-control form-control-sm extra-small" value="1" min="0" max="1" step="0.001">
+                            </div>
+                        </div>
+                        <div class="mb-2 flex-shrink-0">
+                            <input id="res-search" class="form-control form-control-sm extra-small" placeholder="Search feature name..." />
+                        </div>
+                        <div class="table-responsive-scroller" style="max-height: 570px;">
+                            <table class="table table-sm table-hover border text-center table-xs mb-0" id="res-table">
+                                <thead class="table-dark sticky-top">
+                                    <tr>
+                                        <th><i class="fa-solid fa-tag"></i></th>
+                                        <th>Feature</th>
+                                        <th>Global FDR</th>
+                                        <th>Method</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="results-panel">
+                <div id="split-workspace" class="result-card d-none" style="flex: 1 1 auto; min-height: 0;"></div>
+                <div id="results-container" class="results-wrapper d-none">
+                    <!-- ROW 1: Boxplot -->
+                    <div class="results-row-1">
+                        <!-- BOXPLOT -->
+                        <div class="result-card boxplot-card">
+                            <div class="d-flex justify-content-between align-items-center mb-1 flex-shrink-0">
+                                <h6 class="fw-bold mb-0 text-primary small">Group Comparison (Boxplot)</h6>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div id="boxplot-feature-title" class="extra-small fw-bold text-muted italic">Click a feature in table to view details</div>
+                                    <div id="anova-config-anchor" style="position:relative;z-index:100;"></div>
+                                </div>
+                            </div>
+                            <div id="boxplot-detail" class="boxplot-container"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- ROW 2: MANHATTAN PLOT -->
+                    <div class="result-card results-row-2 manhattan-card">
+                        <div class="d-flex justify-content-between align-items-center mb-1 flex-shrink-0">
+                            <h6 class="fw-bold mb-0 text-primary small">Manhattan Plot (-log10 FDR)</h6>
+                            <div class="d-flex align-items-center gap-2">
+                                <div id="manhattan-plot-title" class="extra-small fw-bold text-muted italic">Significance overview</div>
+                                <div id="manhattan-config-anchor" style="position:relative;z-index:100;"></div>
+                            </div>
+                        </div>
+                        <div id="manhattan-plot" class="manhattan-container"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script type="module" src="./src/js/anova.js"></script>
+</body>
+</html>

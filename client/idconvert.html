@@ -1,0 +1,110 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LipidPortal - ID Conversion</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="./src/css/main.css?v=20261007-2" />
+    <style>
+        body { display: none; }
+        .result-table-wrap { max-height: 65vh; overflow: auto; border: 1px solid #e7eef5; border-radius: 10px; }
+        .result-table-wrap table { font-size: 0.76rem; }
+        /* one row per feature, no wrapping â€” widen horizontally instead */
+        .result-table-wrap td, .result-table-wrap th { white-space: nowrap; }
+        .result-table-wrap thead th { position: sticky; top: 0; background: #212529; color: #fff; z-index: 1; }
+        textarea { font-family: ui-monospace, Consolas, monospace; }
+        .filter-btn:active, .filter-btn.active { font-weight: 700; }
+        /* main.css theme forces outline buttons to white bg + !important, so
+           these need !important too to survive. */
+        .filter-btn[data-filter="all"]:hover,
+        .filter-btn.active[data-filter="all"] { background-color: #0d6efd !important; color: #fff !important; border-color: #0d6efd !important; }
+        .filter-btn[data-filter="recognized"]:hover,
+        .filter-btn.active[data-filter="recognized"] { background-color: #198754 !important; color: #fff !important; border-color: #198754 !important; }
+        .filter-btn[data-filter="unrecognized"]:hover,
+        .filter-btn.active[data-filter="unrecognized"] { background-color: #dc3545 !important; color: #fff !important; border-color: #dc3545 !important; }
+    </style>
+    <script type="module" src="./src/js/auth-gate.js?v=20261007-2"></script>
+</head>
+<body class="bg-light">
+
+    <div id="header-placeholder"></div>
+
+    <div class="container-fluid py-4 px-4">
+        <div class="card shadow border-0">
+            <div class="card-body p-4">
+
+                <div class="d-flex justify-content-between align-items-start gap-3 mb-4">
+                    <div>
+                        <h3 class="fw-bold mb-1"><i class="fa-solid fa-barcode text-primary me-2"></i>Lipid ID Conversion</h3>
+                        <p class="text-muted small mb-0">
+                            Offline annotation against the bundled lipid reference snapshot
+                            (cross-database IDs, structural name parsing, LION characteristics).
+                        </p>
+                    </div>
+                    <a href="./projectID.html" class="btn btn-outline-secondary btn-sm px-3">
+                        <i class="fa-solid fa-arrow-left me-1"></i> Back to Projects
+                    </a>
+                </div>
+
+                <div class="row g-4">
+                    <div class="col-lg-3">
+                        <label class="form-label fw-bold small">Lipid names (one per line)</label>
+                        <textarea id="names-input" class="form-control mb-3" rows="14"
+                            placeholder="PC 34:1&#10;Cer 38:1;O2&#10;LPC O-16:0&#10;..."></textarea>
+
+                        <div class="d-grid gap-2 mb-3">
+                            <button id="btn-upload" class="btn btn-outline-secondary btn-sm" type="button">
+                                <i class="fa-solid fa-file-arrow-up me-1"></i> Upload CSV / TSV file
+                            </button>
+                            <input id="file-input" type="file" accept=".csv,.tsv,.txt" class="d-none">
+                            <button id="btn-example" class="btn btn-outline-success btn-sm" type="button">
+                                <i class="fa-solid fa-flask me-1"></i> Load example (384-lipid panel)
+                            </button>
+                            <button id="btn-reset" class="btn btn-outline-danger btn-sm" type="button">
+                                <i class="fa-solid fa-rotate-left me-1"></i> Reset Input
+                            </button>
+                        </div>
+
+                        <button id="btn-run" class="btn btn-primary fw-bold px-4 w-100">
+                            <i class="fa-solid fa-bolt me-1"></i> Convert IDs
+                        </button>
+                        <div id="input-status" class="small text-muted mt-2"></div>
+                    </div>
+
+                    <div class="col-lg-9">
+                        <div id="stats-box" class="alert alert-secondary small d-none mb-3"></div>
+                        <div id="warnings-box" class="alert alert-warning small d-none mb-3" style="max-height: 120px; overflow:auto;"></div>
+
+                        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                            <div id="filter-group" class="btn-group btn-group-sm d-none" role="group">
+                                <button class="btn btn-outline-primary filter-btn active" data-filter="all" type="button"></button>
+                                <button class="btn btn-outline-success filter-btn" data-filter="recognized" type="button"></button>
+                                <button class="btn btn-outline-danger filter-btn" data-filter="unrecognized" type="button"></button>
+                            </div>
+                            <button id="btn-download" class="btn btn-success btn-sm px-3 d-none">
+                                <i class="fa-solid fa-download me-1"></i> Download CSV
+                            </button>
+                        </div>
+                        <div class="result-table-wrap bg-white">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead><tr id="result-head"></tr></thead>
+                                <tbody id="result-body">
+                                    <tr><td class="text-muted small p-3">No results yet.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="table-note" class="small text-muted mt-1"></div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="./src/js/header-loader.js?v=20261007-2"></script>
+    <script type="module" src="./src/js/idconvert.js?v=20261007-2"></script>
+</body>
+</html>

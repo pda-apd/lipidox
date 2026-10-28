@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Classification and Feature Importance - Analytic</title>
+    <link rel="icon" href="./src/img/logo1.png" type="image/png" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="./src/css/main.css" />
+    <script type="module" src="./src/js/auth-gate.js"></script>
+</head>
+<body class="rf-page bg-light">
+    <div class="rf-shell">
+        <div id="sidebar-placeholder"></div>
+        <main class="rf-main">
+
+            <!-- ═══ LEFT: Config Panel ═══ -->
+            <section class="rf-config-panel">
+                <div class="rf-card" id="rf-setup-card">
+                    <h6 class="fw-bold mb-2 text-primary">
+                        <i class="fa-solid fa-tree me-2"></i>Classification and Feature Importance
+                    </h6>
+
+                    <!-- History -->
+                    <div class="history-anchor mb-3">
+                        <button id="rf-history-toggle" type="button" class="btn btn-outline-secondary btn-sm w-100">
+                            <i class="fa-solid fa-clock-rotate-left me-1"></i>History
+                        </button>
+                        <div id="rf-history-popup" class="history-popup"></div>
+                    </div>
+
+                    <!-- User Configuration -->
+                    <button class="section-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#rf-config-body" aria-expanded="true" aria-controls="rf-config-body">
+                        <span><i class="fa-solid fa-layer-group me-2 text-primary"></i>User Configuration</span>
+                        <i class="fa-solid fa-chevron-down"></i>
+                    </button>
+                    <div class="collapse show" id="rf-config-body">
+                    <div class="section-body mb-3">
+                        <div class="mb-3">
+                            <label class="rf-label">Analysis Name</label>
+                            <input id="rf-analysis-name" type="text" class="form-control form-control-sm"
+                                   placeholder="Enter analysis name" />
+                        </div>
+
+                        <!-- Manual / Split mode tabs -->
+                        <div class="rf-mode-tabs mb-3">
+                            <button id="rf-mode-manual" type="button" class="rf-mode-tab active">Manual</button>
+                            <button id="rf-mode-split"  type="button" class="rf-mode-tab">Split</button>
+                        </div>
+
+                        <!-- Manual: target metadata select -->
+                        <div id="rf-manual-section">
+                            <div class="mb-3">
+                                <label class="rf-label">1. Meta column</label>
+                                <select id="rf-target" class="form-select form-select-sm">
+                                    <option value="">-- Select --</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="rf-label">2. Comparison pair</label>
+                                <div id="rf-comparisons-list" class="meta-list"></div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="rf-label">3. Model type</label>
+                                <select id="rf-model-type" class="form-select form-select-sm">
+                                    <option value="rf" selected>Random Forest</option>
+                                    <option value="svm">SVM</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Split: config host (populated by createSplitMetaEngine) -->
+                        <div id="rf-split-config-host" class="d-none mb-2"></div>
+
+                        <div id="rf-config-rf" class="mb-3">
+                            <!-- ntree / mtry -->
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <label class="rf-label">ntree</label>
+                                    <div class="rf-ntree-anchor">
+                                        <button id="rf-ntree-trigger" type="button" class="btn btn-outline-secondary btn-sm w-100">
+                                            Select Trees: 500
+                                        </button>
+                                        <input id="rf-ntree" type="hidden" value="500" />
+                                        <div id="rf-ntree-popup" class="rf-ntree-popup">
+                                            <button class="rf-preset-btn" data-value="500">500</button>
+                                            <button class="rf-preset-btn" data-value="1000">1000</button>
+                                            <button class="rf-preset-btn" data-value="2000">2000</button>
+                                            <button class="rf-preset-btn" data-value="5000">5000</button>
+                                            <button class="rf-preset-btn" data-value="10000">10000</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <label class="rf-label">mtry</label>
+                                    <select id="rf-max-features" class="form-select form-select-sm">
+                                        <option value="sqrt" selected>sqrt</option>
+                                        <option value="log2">log2</option>
+                                        <option value="all">all</option>
+                                        <option value="0.5">0.5</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="rf-config-svm" class="mb-3 d-none">
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <label class="rf-label">kernel</label>
+                                    <select id="svm-kernel" class="form-select form-select-sm">
+                                        <option value="rbf" selected>rbf</option>
+                                        <option value="linear">linear</option>
+                                    </select>
+                                </div>
+                                <div class="col-6">
+                                    <label class="rf-label">C</label>
+                                    <input id="svm-C" type="number" min="0.01" max="1000" step="0.01" value="1.0" class="form-control form-control-sm" />
+                                </div>
+                            </div>
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <label class="rf-label">cv_folds</label>
+                                    <select id="svm-cv-folds" class="form-select form-select-sm">
+                                        <option value="3">3</option>
+                                        <option value="5" selected>5</option>
+                                        <option value="10">10</option>
+                                    </select>
+                                </div>
+                                <div class="col-6">
+                                    <label class="rf-label">class_weight</label>
+                                    <select id="svm-class-weight" class="form-select form-select-sm">
+                                        <option value="balanced" selected>balanced</option>
+                                        <option value="none">none</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <label class="rf-label">n_bootstrap</label>
+                                    <select id="svm-n-bootstrap" class="form-select form-select-sm">
+                                        <option value="500">500</option>
+                                        <option value="1000" selected>1000</option>
+                                        <option value="2000">2000</option>
+                                    </select>
+                                </div>
+                                <div class="col-6">
+                                    <label class="rf-label">ci_level</label>
+                                    <select id="svm-ci-level" class="form-select form-select-sm">
+                                        <option value="0.90">0.90</option>
+                                        <option value="0.95" selected>0.95</option>
+                                        <option value="0.99">0.99</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <label class="rf-label">cutoff_method</label>
+                                    <select id="svm-cutoff-method" class="form-select form-select-sm">
+                                        <option value="youden" selected>youden</option>
+                                        <option value="closest_topleft">closest_topleft</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="row g-2" id="svm-n-repeats-wrap">
+                                <div class="col-12">
+                                    <label class="rf-label">n_repeats_permutation (rbf only)</label>
+                                    <select id="svm-n-repeats-permutation" class="form-select form-select-sm">
+                                        <option value="5">5</option>
+                                        <option value="10" selected>10</option>
+                                        <option value="20">20</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button id="rf-run-btn" class="btn btn-primary btn-sm w-100 fw-bold py-2 shadow-sm" disabled>
+                            <i class="fa-solid fa-play me-2"></i>RUN
+                        </button>
+                        <div id="rf-run-status" class="rf-status-line mt-1"></div>
+                    </div><!-- /section-body -->
+                    </div><!-- /collapse -->
+
+                    <!-- ── Result Tabs — hidden until first run completes ── -->
+                    <div id="rf-result-tabs-section" class="d-none">
+
+                        <!-- 3-column tab row -->
+                        <div class="rf-result-tab-row mb-2">
+                            <button class="rf-result-tab active" data-rf-tab="classification">Classification</button>
+                            <button class="rf-result-tab" data-rf-tab="importance">Var. Importance</button>
+                            <button class="rf-result-tab" data-rf-tab="outlier">Outlier Detection</button>
+                        </div>
+
+                        <!-- Classification info -->
+                        <div id="rf-classification-section">
+                            <div id="rf-classification-info"
+                                 class="rf-info-line p-2 bg-light rounded border"></div>
+                        </div>
+
+                        <!-- Feature importance table -->
+                        <div id="rf-importance-section" class="d-none">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="fw-bold text-primary" style="font-size:0.78rem;">Feature Table</span>
+                                <div class="d-flex gap-1 align-items-center">
+                                    <span id="rf-importance-count" class="badge bg-light text-dark border">0 features</span>
+                                    <button id="rf-importance-download" class="btn btn-sm btn-outline-primary fw-bold"
+                                            style="font-size:0.72rem;padding:2px 8px;">CSV</button>
+                                </div>
+                            </div>
+                            <div class="row g-2 mb-2">
+                                <div class="col-5">
+                                    <label for="rf-importance-sort" class="extra-small fw-bold mb-1 text-muted uppercase">Sort</label>
+                                    <select id="rf-importance-sort" class="form-select form-select-sm extra-small">
+                                        <option value="importance_desc">Importance: High to Low</option>
+                                        <option value="importance_asc">Importance: Low to High</option>
+                                        <option value="name_asc">Feature Name: A-Z</option>
+                                    </select>
+                                </div>
+                                <div class="col-3">
+                                    <label for="rf-importance-class" class="extra-small fw-bold mb-1 text-muted uppercase">Class</label>
+                                    <select id="rf-importance-class" class="form-select form-select-sm extra-small">
+                                        <option value="__all__">All classes</option>
+                                    </select>
+                                </div>
+                                <div class="col-4">
+                                    <label for="rf-importance-search" class="extra-small fw-bold mb-1 text-muted uppercase">Search</label>
+                                    <input id="rf-importance-search" class="form-control form-control-sm extra-small" placeholder="Feature name..." />
+                                </div>
+                            </div>
+                            <div id="rf-importance-info" class="rf-info-line mb-1"></div>
+                            <div class="rf-table-scroll">
+                                <table class="table table-sm table-hover align-middle rf-table">
+                                    <thead>
+                                        <tr>
+                                            <th style="width:38px;">Rank</th>
+                                            <th>Feature</th>
+                                            <th>Class</th>
+                                            <th>Importance</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="rf-importance-table-body"></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Outlier table -->
+                        <div id="rf-outlier-section" class="d-none">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="fw-bold text-primary" style="font-size:0.78rem;">Sample Table</span>
+                                <div class="d-flex gap-1 align-items-center">
+                                    <span id="rf-outlier-count" class="badge bg-light text-dark border">0 samples</span>
+                                    <button id="rf-outlier-download" class="btn btn-sm btn-outline-primary fw-bold"
+                                            style="font-size:0.72rem;padding:2px 8px;">CSV</button>
+                                </div>
+                            </div>
+                            <div class="row g-2 mb-2">
+                                <div class="col-5">
+                                    <label for="rf-outlier-sort" class="extra-small fw-bold mb-1 text-muted uppercase">Sort</label>
+                                    <select id="rf-outlier-sort" class="form-select form-select-sm extra-small">
+                                        <option value="score_desc">Score: High to Low</option>
+                                        <option value="score_asc">Score: Low to High</option>
+                                        <option value="measure_desc">Measure: High to Low</option>
+                                        <option value="sample_asc">Sample Name: A-Z</option>
+                                    </select>
+                                </div>
+                                <div class="col-3">
+                                    <label for="rf-outlier-class" class="extra-small fw-bold mb-1 text-muted uppercase">Class</label>
+                                    <select id="rf-outlier-class" class="form-select form-select-sm extra-small">
+                                        <option value="__all__">All classes</option>
+                                    </select>
+                                </div>
+                                <div class="col-4">
+                                    <label for="rf-outlier-search" class="extra-small fw-bold mb-1 text-muted uppercase">Search</label>
+                                    <input id="rf-outlier-search" class="form-control form-control-sm extra-small" placeholder="Feature/Sample..." />
+                                </div>
+                            </div>
+                            <div id="rf-outlier-info" class="rf-info-line mb-1"></div>
+                            <div class="rf-table-scroll">
+                                <table class="table table-sm table-hover align-middle rf-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Sample</th>
+                                            <th>Class</th>
+                                            <th>Score</th>
+                                            <th>Measure</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="rf-outlier-table-body"></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                    </div><!-- /rf-result-tabs-section -->
+
+                </div><!-- /rf-card -->
+            </section><!-- /rf-config-panel -->
+
+            <!-- ═══ RIGHT: Results Panel (4-panel dashboard) ═══ -->
+            <section class="rf-results-panel">
+
+                <!-- Split workspace — filled by createSplitMetaEngine, visible in split mode -->
+                <div id="rf-split-workspace" class="d-none rf-right-fill"></div>
+
+                <!-- 4-panel dashboard — visible after run completes -->
+                <div id="rf-results-area" class="d-none rf-dashboard-shell">
+                    <div class="rfd-grid">
+                        <!-- Left column: Confusion Matrix (1/3) + Var. Importance (2/3) -->
+                        <div class="rfd-col rfd-col-left">
+                            <div class="rfd-panel" id="rfd-panel-cm">
+                                <div class="rfd-panel-hdr">
+                                    <span class="rfd-title"><i class="fa-solid fa-table-cells fa-xs me-1"></i>Confusion Matrix</span>
+                                    <div class="rfd-actions"></div>
+                                </div>
+                                <div class="rfd-plot-body" id="rfd-plot-cm"></div>
+                            </div>
+                            <div class="rfd-panel" id="rfd-panel-importance">
+                                <div class="rfd-panel-hdr">
+                                    <span class="rfd-title"><i class="fa-solid fa-chart-bar fa-xs me-1"></i>Var. Importance</span>
+                                    <div class="btn-group btn-group-sm d-none" id="svm-importance-mode-toggle" role="group" aria-label="SVM importance mode">
+                                        <button type="button" class="btn btn-outline-secondary active" id="svm-view-feature">Feature Importance</button>
+                                        <button type="button" class="btn btn-outline-secondary" id="svm-view-boundary">Decision Boundary</button>
+                                    </div>
+                                    <div class="rfd-actions"></div>
+                                </div>
+                                <div class="rfd-plot-body" id="rfd-plot-importance">
+                                    <div class="rfd-legend-overlay" id="rfd-legend-importance"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Right column: OOB Error (1/2) + Outlier Detection (1/2) -->
+                        <div class="rfd-col rfd-col-right">
+                            <div class="rfd-panel" id="rfd-panel-error">
+                                <div class="rfd-panel-hdr">
+                                    <span class="rfd-title" id="rfd-title-error"><i class="fa-solid fa-chart-line fa-xs me-1"></i>OOB Error vs Trees</span>
+                                    <div class="rfd-actions"></div>
+                                </div>
+                                <div class="rfd-plot-body" id="rfd-plot-error"></div>
+                            </div>
+                            <div class="rfd-panel" id="rfd-panel-outlier">
+                                <div class="rfd-panel-hdr">
+                                    <span class="rfd-title" id="rfd-title-outlier"><i class="fa-solid fa-circle-exclamation fa-xs me-1"></i>Outlier Detection</span>
+                                    <div class="rfd-actions"></div>
+                                </div>
+                                <div class="rfd-plot-body" id="rfd-plot-outlier"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Empty-state placeholder -->
+                <div id="rf-empty-state" class="rf-right-fill rf-empty-state">
+                    <i class="fa-solid fa-tree fa-3x mb-3 text-muted opacity-25"></i>
+                    <div class="text-muted" style="font-size:0.85rem;">Run an analysis to view results here.</div>
+                </div>
+
+            </section><!-- /rf-results-panel -->
+
+        </main>
+    </div>
+
+    <div class="modal fade" id="rf-feature-violin-modal" tabindex="-1" aria-labelledby="rf-feature-violin-title" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="rf-feature-violin-title">Expression by RF groups</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="rf-feature-violin-plot" style="width:100%; min-height:420px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+    <script type="module" src="./src/js/classification.js"></script>
+</body>
+</html>

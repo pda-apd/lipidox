@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heatmap & HCA - Lipid Analytic</title>
+    <link rel="icon" href="./src/img/logo1.png" type="image/png" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="./src/css/main.css" />
+    <style>
+        .hca-group-list { display: flex; flex-wrap: wrap; gap: 6px; max-height: 150px; overflow-y: auto; padding: 2px; }
+        .hca-group-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border: 1px solid #d9e2ea; border-radius: 999px; background: #fff; font-size: 0.72rem; cursor: pointer; user-select: none; line-height: 1.4; }
+        .hca-group-chip input { display: none; }
+        .hca-group-swatch { width: 11px; height: 11px; border-radius: 50%; display: inline-block; border: 1px solid rgba(0,0,0,0.15); flex-shrink: 0; }
+        .hca-group-chip:has(input:not(:checked)) { opacity: 0.45; }
+        .hca-group-chip:has(input:not(:checked)) .hca-group-swatch { background: #fff !important; }
+        .hca-group-actions { display: flex; gap: 4px; margin-top: 4px; }
+    </style>
+    <script type="module" src="./src/js/auth-gate.js"></script>
+</head>
+<body class="analysis-page">
+    <div class="main-wrapper">
+        <div id="sidebar-placeholder"></div>
+        <main class="content-area">
+            <section class="left-panel">
+                <div class="card-shell">
+                    <h6 class="panel-title" style="font-size: 0.82rem"><i class="fa-solid fa-diagram-project me-2 text-secondary"></i>Heatmap & Hierarchical Clustering</h6>
+
+                    <div class="section-box">
+                        <div class="mb-2">
+                            <label class="small-heading">Mode</label>
+                            <select id="view-mode" class="form-select form-select-sm">
+                                <option value="heatmap" selected>Heatmap</option>
+                                <option value="hca">Hierarchical Clustering (HCA)</option>
+                            </select>
+                        </div>
+                        <div class="d-flex gap-3 extra-small">
+                            <div class="form-check mb-0">
+                                <input class="form-check-input" type="checkbox" id="show-col-labels" checked>
+                                <label class="form-check-label" for="show-col-labels">Show sample labels</label>
+                            </div>
+                            <div class="form-check mb-0">
+                                <input class="form-check-input" type="checkbox" id="show-row-labels" checked>
+                                <label class="form-check-label" for="show-row-labels">Show feature labels</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="history-anchor">
+                        <button id="history-toggle" class="btn btn-outline-secondary btn-sm w-100" type="button">
+                            <i class="fa-solid fa-clock-rotate-left me-1"></i> History (HC)
+                        </button>
+                        <div id="history-popup" class="history-popup"></div>
+                    </div>
+
+                    <div id="hca-config" class="section-box d-none">
+                        <button class="btn btn-sm btn-outline-secondary w-100 text-start mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#hca-config-body" aria-expanded="true" aria-controls="hca-config-body">
+                            <i class="fa-solid fa-sliders me-1"></i> HCA User Config
+                        </button>
+                        <div class="collapse show" id="hca-config-body">
+                            <div class="mb-2">
+                                <label class="small-heading">Analysis Name</label>
+                                <input id="hca-analysis-name" class="form-control form-control-sm" placeholder="e.g. HCA_MyRun">
+                            </div>
+                            <div class="mb-2">
+                                <label class="small-heading">Standardization</label>
+                                <select id="hca-standardization" class="form-select form-select-sm">
+                                    <option value="autoscale_features">Autoscale features (Z-score)</option>
+                                    <option value="autoscale_samples">Autoscale sample (Z-score)</option>
+                                    <option value="none" selected>None</option>
+                                </select>
+                            </div>
+                            <div class="mb-2">
+                                <label class="small-heading">Distance Measure</label>
+                                <select id="hca-distance" class="form-select form-select-sm">
+                                    <option value="euclidean">Euclidean</option>
+                                    <option value="pearson">Pearson</option>
+                                    <option value="minkowski">Minkowski</option>
+                                </select>
+                            </div>
+                            <div class="mb-2">
+                                <label class="small-heading">Group / Sort By Metadata</label>
+                                <select id="hca-meta-col" class="form-select form-select-sm"></select>
+                            </div>
+                            <div class="mb-2" id="hca-group-select-wrap">
+                                <label class="small-heading">Groups <span class="text-muted" style="font-weight:400;">(pick one or more)</span></label>
+                                <div id="hca-group-select" class="hca-group-list"></div>
+                                <div class="hca-group-actions">
+                                    <button type="button" id="hca-group-all" class="btn btn-link btn-sm py-0 px-1">All</button>
+                                    <button type="button" id="hca-group-none" class="btn btn-link btn-sm py-0 px-1">None</button>
+                                </div>
+                            </div>
+                            <div class="mb-2">
+                                <label class="small-heading">Other View Options</label>
+                                <select id="hca-cluster-by" class="form-select form-select-sm">
+                                    <option value="none">Do not cluster</option>
+                                    <option value="samples">Samples</option>
+                                    <option value="features">Features</option>
+                                    <option value="both" selected>Both</option>
+                                </select>
+                            </div>
+                            <div class="mb-2">
+                                <label class="small-heading">Heatmap Type</label>
+                                <select id="hca-heatmap-type" class="form-select form-select-sm">
+                                    <option value="per_sample" selected>Per sample</option>
+                                    <option value="mean_expression">Mean</option>
+                                </select>
+                            </div>
+                            <button id="btn-run-hca" class="btn btn-secondary btn-sm w-100 fw-bold">
+                                <i class="fa-solid fa-play me-1"></i>RUN HCA
+                            </button>
+                            <div id="hca-run-status" class="status-line mt-1"></div>
+                        </div>
+                    </div>
+
+                    <div id="common-config" class="section-box hc-loading-section">
+                        <div class="hc-section-content">
+                            <div id="heatmap-only-options" class="mb-2">
+                                <label class="small-heading">Heatmap Type</label>
+                                <select id="heatmap-type" class="form-select form-select-sm">
+                                    <option value="per_sample">Per sample</option>
+                                    <option value="mean_expression">Mean expression</option>
+                                </select>
+                            </div>
+                            <div id="heatmap-scale-wrap" class="mb-2">
+                                <label class="small-heading">Display Scale</label>
+                                <select id="heatmap-scale-mode" class="form-select form-select-sm">
+                                    <option value="row_zscore" selected>Row Z-score</option>
+                                    <option value="raw">None</option>
+                                </select>
+                            </div>
+                            <div class="mb-2">
+                                <label class="small-heading">Group/Sort By Metadata</label>
+                                <select id="meta-col" class="form-select form-select-sm"></select>
+                            </div>
+                            <div class="mb-2">
+                                <label class="small-heading">Labels</label>
+                                <div id="label-list" class="label-list"></div>
+                            </div>
+                            <div id="feature-section">
+                                <div class="mb-2">
+                                    <label class="small-heading">View As</label>
+                                    <select id="feature-view-mode" class="form-select form-select-sm">
+                                        <option value="manual" selected>Manual selection</option>
+                                        <option value="top_5">Top 5 features per label</option>
+                                        <option value="top_10">Top 10 features per label</option>
+                                        <option value="top_15">Top 15 features per label</option>
+                                        <option value="top_20">Top 20 features per label</option>
+                                        <option value="top_50">Top 50 features per label</option>
+                                    </select>
+                                    <div id="feature-view-note" class="extra-small text-muted mt-1" style="display:none;">Manual mode uses the feature checklist below.</div>
+                                </div>
+                                <div class="mb-2">
+                                    <input id="feature-search" class="form-control form-control-sm" placeholder="Search feature name...">
+                                </div>
+                                <div class="feature-table-wrap">
+                                    <table id="feature-table" class="table table-sm table-hover mb-0 extra-small">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th style="width: 34px;"><input id="feature-check-all" type="checkbox"></th>
+                                                <th>Feature</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="status-line mt-1" id="heatmap-status">Loading default heatmap...</div>
+                            <button id="btn-rerun-heatmap" class="btn btn-outline-secondary btn-sm w-100 mt-2">
+                                <i class="fa-solid fa-rotate-right me-1"></i>Re-run Heatmap
+                            </button>
+                        </div>
+                        <div id="hc-loading-overlay" class="hc-loading-overlay">
+                            <div>
+                                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                                <span id="hc-loading-text">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="right-panel">
+                <div class="card-shell result-shell">
+                    <div class="result-toolbar">
+                        <div>
+                            <div class="panel-title mb-0"><i class="fa-solid fa-chart-heat-map me-2"></i>Result</div>
+                            <div id="result-subtitle" class="plot-meta">__Waiting for data...</div>
+                        </div>
+                        <div id="heatmap-config-anchor" style="position:relative;z-index:100;"></div>
+                    </div>
+                    <div class="result-frame-wrap">
+                        <div id="result-empty" class="result-empty">Loading...</div>
+                        <iframe id="heatmap-frame" title="Heatmap Result"></iframe>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module" src="./src/js/heatmap.js"></script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "LipidoX: a web platform for LC-MS/MS lipidomics data processing, statistical analysis and visualization"
+version: 1.0.0
+date-released: 2026-10-28
+license: MIT
+type: software
+repository-code: "https://github.com/pda-apd/lipidox"
+authors:
+  - family-names: Pham
+    given-names: Anh Duc
+    orcid: "https://orcid.org/0009-0004-5156-951X"
+    affiliation: "Applied Biomedical Research Center, Phenikaa University, Hanoi, Vietnam"
+  - family-names: Pham
+    given-names: Thang Luong
+    orcid: "https://orcid.org/0000-0001-7600-7450"
+  - family-names: Pham
+    given-names: Minh Dang
+    affiliation: "Applied Biomedical Research Center, Phenikaa University, Hanoi, Vietnam"
+  - family-names: Pham
+    given-names: Khanh Minh
+    affiliation: "Applied Biomedical Research Center, Phenikaa University, Hanoi, Vietnam"
+  - family-names: Pham
+    given-names: Phuong-Anh Thi
+    affiliation: "Applied Biomedical Research Center, Phenikaa University, Hanoi, Vietnam"
+  - family-names: Nguyen
+    given-names: Linh My
+    affiliation: "Applied Biomedical Research Center, Phenikaa University, Hanoi, Vietnam"
+  - family-names: Nguyen
+    given-names: Huong-Ngan Thi
+    affiliation: "Applied Biomedical Research Center, Phenikaa University, Hanoi, Vietnam"
+  - family-names: Nguyen
+    given-names: Linh Nhat
+    affiliation: "Applied Biomedical Research Center, Phenikaa University, Hanoi, Vietnam"
+  - family-names: Nguyen
+    given-names: Tinh Nghe
+    affiliation: "Hanoi Medical University; Bach Mai Hospital, Hanoi, Vietnam"
+  - family-names: Nguyen
+    given-names: Long Cong
+    orcid: "https://orcid.org/0000-0002-5275-9014"
+    affiliation: "Bach Mai Institute of Digestive Diseases, Bach Mai Hospital, Hanoi, Vietnam"
+  - family-names: Do
+    given-names: Khanh Van
+    orcid: "https://orcid.org/0000-0001-7834-3781"
+    affiliation: "Applied Biomedical Research Center, Phenikaa University, Hanoi, Vietnam"

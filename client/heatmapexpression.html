@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Heatmap Expression - Lipid Analytic</title>
+    <link rel="icon" href="./src/img/logo1.png" type="image/png" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="./src/css/main.css" />
+    <style>
+        .config-panel { flex: 0 0 20%; padding-right: 0.6rem; display: flex; flex-direction: column; overflow-y: auto; }
+        .results-panel { flex: 0 0 80%; display: flex; flex-direction: column; overflow: hidden; }
+        .history-section { margin-top: 0.6rem; flex-grow: 1; overflow-y: auto; }
+
+        .result-zone {
+            flex-grow: 1; background: #e9e9e9; border-radius: 12px; overflow: hidden;
+            display: flex; align-items: center; justify-content: center;
+            border: 2px dashed #ccc; position: relative; cursor: grab;
+        }
+        .result-zone:active { cursor: grabbing; }
+
+        #heatmap-img {
+            background: #fff; box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: transform 0.1s ease-out; transform-origin: center center;
+            max-width: none; user-select: none; -webkit-user-drag: none;
+        }
+
+        .zoom-bar {
+            position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+            background: rgba(255,255,255,0.95); border-radius: 8px; padding: 4px 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 6px; z-index: 10;
+        }
+    </style>
+    <script type="module" src="./src/js/auth-gate.js"></script>
+</head>
+<body class="analysis-page">
+    <div id="header-placeholder"></div>
+    <div class="main-wrapper">
+        <div id="sidebar-placeholder"></div>
+        <main class="content-area">
+            <div class="config-panel">
+                <div class="setup-card" id="analysis-setup-card">
+                     <h6 class="fw-bold mb-2 text-primary"><i class="fa-solid fa-mountain-sun me-2"></i>Heatmap Expression</h6>
+
+                    
+                    <div class="history-anchor">
+                        <button id="history-toggle" type="button" class="btn btn-outline-secondary btn-sm w-100">
+                            <i class="fa-solid fa-clock-rotate-left me-1"></i> History
+                        </button>
+                        <div id="history-popup" class="history-popup"></div>
+                    </div>
+
+                    <button class="section-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#heatmap-config-body" aria-expanded="true" aria-controls="heatmap-config-body">
+                        <span><i class="fa-solid fa-layer-group me-2 text-primary"></i>User Configuration</span>
+                        <i class="fa-solid fa-chevron-down"></i>
+                    </button>
+
+                    <div class="collapse show" id="heatmap-config-body">
+                        <div class="section-body">
+                            <div class="mb-3">
+                                <label class="extra-small fw-bold mb-1 text-muted uppercase">Analysis Name</label>
+                                <input type="text" id="analysis-name" class="form-control form-control-sm" placeholder="Enter analysis name">
+                            </div>
+                            <div class="mb-2">
+                                <label class="extra-small fw-bold mb-1 text-muted">Heatmap Mode</label>
+                                <select id="heatmap-mode" class="form-select form-select-sm">
+                                    <option value="per_sample">Per Sample</option>
+                                    <option value="mean_expression">Mean Expression</option>
+                                </select>
+                            </div>
+                            <div class="mb-2">
+                                <label class="extra-small fw-bold mb-1 text-muted">Display Scale</label>
+                                <select id="heatmap-scale-mode" class="form-select form-select-sm">
+                                    <option value="row_zscore" selected>Row Z-score</option>
+                                    <option value="raw">Raw</option>
+                                </select>
+                            </div>
+                            <div class="mb-2">
+                                <label class="extra-small fw-bold mb-1 text-muted">Group/Sort By</label>
+                                <select id="meta-col-select" class="form-select form-select-sm"></select>
+                            </div>
+                            <div class="mb-2">
+                                <label class="extra-small fw-bold mb-1 text-muted">View As</label>
+                                <select id="feature-view-mode" class="form-select form-select-sm">
+                                    <option value="all" selected>All features</option>
+                                    <option value="top_5">Top 5 features per label</option>
+                                    <option value="top_10">Top 10 features per label</option>
+                                    <option value="top_15">Top 15 features per label</option>
+                                    <option value="top_20">Top 20 features per label</option>
+                                    <option value="top_50">Top 50 features per label</option>
+                                </select>
+                                <div id="feature-view-note" class="extra-small text-muted mt-1">All features from the normalized matrix will be included.</div>
+                            </div>
+                            <div class="mb-2">
+                                <label class="extra-small fw-bold mb-1 text-muted">Color Palette</label>
+                                <select id="color-palette" class="form-select form-select-sm">
+                                    <option value="RdBu_r">Red-Blue</option>
+                                    <option value="viridis">Viridis</option>
+                                    <option value="magma">Magma</option>
+                                    <option value="coolwarm">Cool-Warm</option>
+                                </select>
+                            </div>
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <label class="extra-small fw-bold mb-1 text-muted">Width</label>
+                                    <input type="number" id="fig-width" class="form-control form-control-sm" value="12">
+                                </div>
+                                <div class="col-6">
+                                    <label class="extra-small fw-bold mb-1 text-muted">Height</label>
+                                    <input type="number" id="fig-height" class="form-control form-control-sm" value="10">
+                                </div>
+                            </div>
+                            <!-- <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="show-labels" checked>
+                                <label class="form-check-label extra-small" for="show-labels">Show lipid labels</label>
+                            </div> -->
+                            <button id="btn-generate-heatmap" class="btn btn-sm w-100 fw-bold py-2 shadow-sm text-white" style="background:#0d6efd;">
+                                <i class="fa-solid fa-wand-magic-sparkles me-2"></i>Generate Heatmap
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="results-panel">
+                <div class="result-zone" id="img-container">
+                    <div id="heatmap-placeholder" class="text-center py-5">
+                        <i class="fa-solid fa-chart-area fa-4x mb-3 opacity-25"></i>
+                        <p class="text-muted">Generate heatmap to display result</p>
+                    </div>
+                    <img id="heatmap-img" class="d-none" />
+                    <div class="zoom-bar d-none" id="zoom-bar">
+                        <button id="btn-zoom-out" class="btn btn-sm btn-outline-dark py-0 px-1"><i class="fa-solid fa-minus"></i></button>
+                        <span id="zoom-level" class="small fw-bold px-1">100%</span>
+                        <button id="btn-zoom-in" class="btn btn-sm btn-outline-dark py-0 px-1"><i class="fa-solid fa-plus"></i></button>
+                        <button id="btn-zoom-reset" class="btn btn-sm btn-link text-decoration-none small py-0">Reset</button>
+                        <span class="text-muted">|</span>
+                        <button id="btn-download-jpg" class="btn btn-sm btn-dark py-0 px-2 fw-bold extra-small"><i class="fa-solid fa-download me-1"></i>JPG</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module" src="./src/js/heatmapexpression.js"></script>
+</body>
+</html>

@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Univariate Analysis - Feature Analytic</title>
+    <link rel="icon" href="./src/img/logo1.png" type="image/png" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="./src/css/main.css" />
+    <style>
+        .config-panel { flex: 0 0 25%; padding-right: 0.75rem; display: flex; flex-direction: column; }
+        #analysis-setup-card { min-height: 0; overflow-y: auto; overflow-x: hidden; }
+        .results-panel { flex: 0 0 75%; display: flex; flex-direction: column; overflow: hidden; }
+        .run-section { margin-top: 1rem; }
+        .normality-box { background: #e7f1ff; border-radius: 6px; padding: 8px; border-left: 3px solid #0d6efd; margin-top: 5px; }
+        .split-panel { border: 1px solid #e2eaf2; background: #f9fbfe; border-radius: 10px; padding: 0.7rem; }
+        .split-topbar { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 0.65rem; flex-wrap: wrap; }
+        .split-group-tabs { display: inline-flex; gap: 0.35rem; background: #edf3fb; padding: 0.2rem; border-radius: 999px; }
+        .split-group-tab { border: none; background: transparent; color: #45607c; border-radius: 999px; padding: 0.35rem 0.8rem; font-size: 0.72rem; font-weight: 700; }
+        .split-group-tab.active { background: #fff; color: #4b5563; box-shadow: 0 1px 3px rgba(75,85,99,0.18); }
+        .split-actions { display: inline-flex; gap: 0.35rem; }
+        .split-level-stack { display: flex; flex-direction: column; gap: 0.6rem; }
+        .split-level-card { border: 1px solid #dce6f1; border-radius: 10px; background: #fff; padding: 0.65rem; }
+        .split-level-header { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+        .split-level-title { font-size: 0.72rem; font-weight: 700; color: #29435c; }
+        .split-level-count { font-size: 0.68rem; color: #66788a; }
+        .split-value-list { max-height: 160px; overflow-y: auto; border: 1px solid #e7edf4; border-radius: 8px; padding: 0.45rem; background: #fbfdff; }
+        .split-value-item { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.28rem 0.15rem; border-bottom: 1px solid #f0f4f8; }
+        .split-value-item:last-child { border-bottom: none; }
+        .split-value-label { display: flex; align-items: center; gap: 0.45rem; min-width: 0; }
+        .split-value-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .split-summary { border: 1px dashed #c8d6e5; border-radius: 10px; background: #fff; padding: 0.65rem; margin-top: 0.7rem; }
+        .split-summary-line { font-size: 0.72rem; color: #51606f; line-height: 1.45; }
+        .split-summary-line strong { color: #233445; }
+        .split-summary-line.error { color: #c0392b; font-weight: 700; }
+        .split-config-shell { display: flex; flex-direction: column; gap: 0.7rem; }
+        .split-left-groups { border: 1px solid #dbe5ef; border-radius: 12px; background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%); padding: 0.75rem; }
+        .split-left-title { font-size: 0.74rem; font-weight: 800; color: #23384c; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem; }
+        .split-left-summary { margin-top: 0; }
+        .split-workspace { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+        .split-builder-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.85rem; }
+        .split-builder-title { font-size: 0.98rem; font-weight: 800; color: #16324a; letter-spacing: 0.02em; }
+        .split-builder-subtitle { font-size: 0.72rem; color: #6b7c8f; }
+        .split-workspace-controls { display: grid; grid-template-columns: 5fr 1fr 5fr 1fr 5fr; gap: 0.65rem; margin-bottom: 0.8rem; align-items: center; }
+        .split-control-slot { position: relative; }
+        .split-control-card { border: 1px solid #dbe5ef; border-radius: 9px; background: #fff; padding: 0.3rem; display: flex; flex-direction: column; gap: 0.3rem; min-height: 0; box-shadow: 0 10px 24px rgba(26,43,61,0.05); }
+        .split-control-title { font-size: 0.73rem; font-weight: 800; color: #243648; text-transform: uppercase; letter-spacing: 0.08em; }
+        .split-control-select { font-weight: 700; color: #21405c; }
+        .split-line-slot { display: flex; align-items: center; justify-content: center; min-width: 0; }
+        .split-swap-floating { width: 2.2rem; height: 2.2rem; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 10px 22px rgba(17,24,39,0.14); }
+        .split-workspace-body { position: relative; min-height: 0; height: 100%; border: 1px solid #e2eaf2; border-radius: 16px; background: linear-gradient(180deg, #fcfdff 0%, #f6f9fc 100%); padding: 0.75rem; }
+        .split-tree-scroll { position: relative; height: 100%; overflow-y: auto; overflow-x: hidden; padding-right: 0.15rem; }
+        .split-tree-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; overflow: visible; }
+        .split-tree-grid { position: relative; z-index: 1; display: grid; grid-template-columns: 5fr 1fr 5fr 1fr 5fr; gap: 0.65rem; min-height: 100%; align-items: start; }
+        .split-column { min-height: 0; display: flex; flex-direction: column; overflow: visible; }
+        .split-column-header { display: flex; justify-content: space-between; align-items: baseline; gap: 0.35rem; margin-bottom: 0.45rem; }
+        .split-column-title { font-size: 0.72rem; font-weight: 800; color: #26384a; }
+        .split-column-subtitle { font-size: 0.62rem; color: #728190; text-align: right; }
+        .split-column-scroll { position: relative; min-height: 0; overflow: visible; }
+        .split-level-stage { position: relative; width: 100%; min-height: 100%; }
+        .split-node-card { position: relative; border: 1px solid #dbe5ef; border-radius: 9px; background: #fff; padding: 0.38rem 0.42rem; box-shadow: 0 4px 10px rgba(31,45,61,0.05); transition: border-color 0.16s ease, background-color 0.16s ease, box-shadow 0.16s ease; }
+        .split-node-card.positioned { position: absolute; left: 0; right: 0; }
+        .split-node-card.clickable { cursor: pointer; }
+        .split-node-card.selected { box-shadow: 0 0 0 1px rgba(13,110,253,0.14), 0 6px 14px rgba(31,45,61,0.07); }
+        .split-node-card.group1-selected { border-color: #facc15; background: rgba(254,249,195,0.72); }
+        .split-node-card.group2-selected { border-color: #34d399; background: rgba(209,250,229,0.78); }
+        .split-node-card.overlap { border-color: #ef4444; background: rgba(254,226,226,0.78); }
+        .split-node-card.unassigned { background: #fbfcfe; color: #5f6e7d; }
+        .split-node-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.35rem; margin-bottom: 0.24rem; }
+        .split-node-name { font-size: 0.66rem; font-weight: 800; color: #243648; margin-bottom: 0.08rem; line-height: 1.15; }
+        .split-node-parent { font-size: 0.56rem; color: #728190; line-height: 1.15; }
+        .split-node-bar { width: 100%; height: 4px; border-radius: 999px; background: #edf2f7; overflow: hidden; margin-bottom: 0.22rem; }
+        .split-node-bar > span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #5ba3ff 0%, #0d6efd 100%); }
+        .split-node-meta { font-size: 0.58rem; color: #617182; line-height: 1.15; }
+        .split-node-badge-row { display: flex; gap: 0.22rem; flex-wrap: wrap; margin-top: 0.24rem; }
+        .split-node-badge { display: inline-flex; align-items: center; border-radius: 999px; padding: 0.12rem 0.32rem; font-size: 0.5rem; font-weight: 800; letter-spacing: 0.02em; }
+        .split-node-badge.group1 { background: #fef3c7; color: #8a5b00; }
+        .split-node-badge.group2 { background: #d1fae5; color: #065f46; }
+        .split-node-badge.overlap { background: #fee2e2; color: #b91c1c; }
+        .split-connector-path { fill: none; stroke: rgba(107,124,143,0.36); stroke-width: 2; stroke-linecap: round; }
+        .split-line-column { min-height: 0; position: relative; }
+        .split-empty { min-height: 220px; display: flex; align-items: center; justify-content: center; text-align: center; color: #7b8896; font-size: 0.76rem; border: 1px dashed #dbe5ef; border-radius: 10px; background: #fff; padding: 0.9rem; }
+        .split-groups-panel { display: flex; flex-direction: column; gap: 0.75rem; min-height: 0; }
+        .split-group-summary-card { border: 1px solid #dbe5ef; border-radius: 12px; background: #fff; padding: 0.8rem; }
+        .split-group-summary-card h6 { font-size: 0.78rem; font-weight: 700; margin-bottom: 0.35rem; color: #243648; }
+        .split-group-summary-card.active { border-color: #4b5563; box-shadow: 0 0 0 1px rgba(75,85,99,0.14); }
+        .split-group-config-line { font-size: 0.7rem; color: #637181; margin-bottom: 0.2rem; }
+        .split-group-summary-footer { margin-top: auto; }
+        .results-wrapper { flex-grow: 1; overflow: hidden; min-height: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+        .results-switcher { padding: 0.7rem 0.8rem; }
+        .results-tabs .btn { border-radius: 999px !important; font-size: 0.78rem; font-weight: 700; padding: 0.35rem 0.9rem; }
+        .results-tabs .btn.active { background: #4b5563; color: #fff; border-color: #4b5563; }
+        .results-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+        .results-body.d-none { display: none !important; }
+        .results-row-1 { display: flex; gap: 0.5rem; flex: 0 0 64%; min-height: 0; }
+        .results-row-2 { display: flex; flex: 0 0 37%; min-height: 0; }
+        .result-card { background: #fff; border-radius: 10px; padding: 0.8rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; flex-direction: column; overflow: hidden; }
+        .table-xs { font-size: 0.72rem; }
+        .table-xs th, .table-xs td { padding: 3px 1px !important; }
+        .table-responsive-scroller { flex-grow: 1; overflow-y: auto; border: 1px solid #eee; box-sizing: border-box; }
+        .volcano-card { flex: 1 1 100%; box-sizing: border-box; }
+        .volcano-container { flex-grow: 1; min-height: 0; width: 100%; position: relative; box-sizing: border-box; }
+        .violin-card { flex: 1 1 100%; min-height: 0; }
+        .violin-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-right: 2px; }
+        .violin-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.65rem; align-content: start; }
+        .violin-item { border: 1px solid #e9eef3; border-radius: 8px; background: #fbfdff; height: 280px; overflow: hidden; padding: 0.55rem; display: flex; flex-direction: column; }
+        .violin-item.empty { align-items: center; justify-content: center; color: #6c757d; font-size: 0.76rem; text-align: center; }
+        .violin-item-title { font-size: 0.72rem; font-weight: 700; color: #2f4052; margin-bottom: 0.35rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
+        .violin-plot { flex: 1 1 0; min-height: 0; width: 100%; overflow: hidden; }
+        .analysis-chip { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.3rem 0.7rem; border-radius: 999px; background: #f3f6f9; color: #425466; font-size: 0.74rem; border: 1px solid #dde6ee; }
+        .enrichment-launch-card { min-height: 0; gap: 0.9rem; }
+        .enrichment-summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+        .summary-tile { border: 1px solid #e9eef3; border-radius: 10px; padding: 0.75rem; background: #fbfdff; }
+        .summary-tile-label { font-size: 0.69rem; font-weight: 700; text-transform: uppercase; color: #738395; margin-bottom: 0.25rem; }
+        .summary-tile-value { font-size: 0.83rem; font-weight: 700; color: #273142; word-break: break-word; }
+        .enrichment-history-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 0.6rem; padding-right: 2px; }
+        .enrichment-history-item { border: 1px solid #e7eef5; border-radius: 10px; padding: 0.75rem; background: #fff; cursor: pointer; transition: 0.15s ease; }
+        .enrichment-history-item:hover, .enrichment-history-item.active { border-color: #9bafc4; background: #f4f7fb; box-shadow: 0 6px 18px rgba(75,85,99,0.08); }
+        .enrichment-history-title { font-size: 0.8rem; font-weight: 700; color: #273142; }
+        .enrichment-history-meta { font-size: 0.71rem; color: #6c7a89; }
+        .enrichment-history-empty { border: 1px dashed #d7e1ea; border-radius: 10px; padding: 1rem; text-align: center; color: #7a8795; background: #fbfdff; }
+        .database-menu { max-height: 220px; overflow-y: auto; min-width: 280px; }
+        .database-menu .form-check { margin-bottom: 0.35rem; }
+        #enrichment-inline-view { display: none; position: fixed; inset: 0; z-index: 1040; background: #fff; flex-direction: column; }
+        #enrichment-inline-view.open { display: flex; }
+        #enrichment-inline-view iframe { flex: 1 1 auto; border: none; }
+        .enrich-inline-topbar { flex: 0 0 auto; display: flex; align-items: center; gap: 0.75rem; padding: 0.55rem 1rem; background: #f8fafc; border-bottom: 1px solid #dde6ee; }
+        .rank-preview-wrap { max-height: 320px; overflow-y: auto; border: 1px solid #e9eef3; border-radius: 8px; }
+        .rank-preview-table { font-size: 0.76rem; margin-bottom: 0; }
+        .rank-preview-table thead th { position: sticky; top: 0; z-index: 1; }
+        .modal-field-note { font-size: 0.72rem; color: #6c757d; }
+        @media (max-width: 1200px) { .violin-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 992px) { .enrichment-summary-grid { grid-template-columns: 1fr; } .split-workspace-controls, .split-tree-grid { grid-template-columns: 1fr; } .split-line-slot, .split-line-column { display: none; } .split-swap-floating { width: auto; height: auto; border-radius: 10px; } }
+        @media (max-width: 768px) { .violin-grid { grid-template-columns: 1fr; } .results-switcher { flex-direction: column; align-items: stretch !important; gap: 0.75rem; } .split-builder-header { flex-direction: column; align-items: stretch; } }
+    </style>
+    <script type="module" src="./src/js/auth-gate.js"></script>
+</head>
+<body class="analysis-page">
+    <div id="header-placeholder"></div>
+    <div class="main-wrapper">
+        <div id="sidebar-placeholder"></div>
+        <main class="content-area">
+            <div class="config-panel">
+                <div class="setup-card" id="analysis-setup-card">
+                    <h6 class="fw-bold mb-2 text-primary"><i class="fa-solid fa-chart-simple me-2"></i>Differential Expression Analysis</h6>
+
+                    <div class="history-anchor">
+                        <button id="history-toggle" type="button" class="btn btn-outline-secondary btn-sm w-100">
+                            <i class="fa-solid fa-clock-rotate-left me-1"></i> History
+                        </button>
+                        <div id="history-popup" class="history-popup"></div>
+                    </div>
+
+                    <button class="section-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#ttest-config-body" aria-expanded="true" aria-controls="ttest-config-body">
+                        <span><i class="fa-solid fa-chart-bar me-2 text-primary"></i>User Configuration</span>
+                        <i class="fa-solid fa-chevron-down"></i>
+                    </button>
+
+                    <div class="collapse show" id="ttest-config-body">
+                        <div class="section-body">
+                            <div class="mb-3">
+                                <label class="extra-small fw-bold mb-1 text-muted uppercase">Analysis Name</label>
+                                <input type="text" id="analysis-name" class="form-control form-control-sm" placeholder="Enter analysis name">
+                            </div>
+                            <div class="config-mode-tabs" role="tablist" aria-label="Input mode">
+                                <button type="button" id="config-mode-manual" class="config-mode-tab active">Manual</button>
+                                <button type="button" id="config-mode-split" class="config-mode-tab">Split</button>
+                            </div>
+                            <div id="manual-config-section">
+                            <div class="mb-3">
+                                <label class="extra-small fw-bold mb-1 text-muted uppercase">1. Meta column</label>
+                                <select id="ana-target" class="form-select form-select-sm mb-2"></select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="extra-small fw-bold mb-1 text-muted uppercase">2. Comparison pair</label>
+                                <div class="meta-list" id="comparisons-list"></div>
+                            </div>
+                            </div>
+                            <div id="split-config-section" class="d-none"></div>
+                            <div class="mb-3">
+                                <label class="extra-small fw-bold mb-1 text-muted uppercase">3. Pairing mode</label>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="paired-mode">
+                                    <label class="form-check-label extra-small" for="paired-mode">Use paired test</label>
+                                </div>
+                                <select id="pair-id-col" class="form-select form-select-sm" disabled>
+                                    <option value="">-- Select Pair ID column --</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="extra-small fw-bold mb-1 text-muted uppercase">4. Test type</label>
+                                <select id="test-type" class="form-select form-select-sm extra-small">
+                                    <option value="auto" selected>Auto (normality-based)</option>
+                                    <option value="student">Student t-test (force)</option>
+                                    <option value="welch">Welch t-test (force)</option>
+                                    <option value="wilcoxon">Mann-Whitney / Wilcoxon (force)</option>
+                                </select>
+                                <div class="extra-small text-muted mt-1" id="tt-type-hint">Auto: per-feature normality test decides.</div>
+                            </div>
+                            <div class="mb-3">
+                                <!-- <label class="extra-small fw-bold mb-1 text-muted uppercase">4. Statistics Info</label> -->
+                                <div id="normality-info" class="normality-box extra-small">Normality is evaluated per feature (not global). Paired mode uses Shapiro on within-pair differences.</div>
+                            </div>
+                            <div class="run-section">
+                                <button id="btn-run-analysis" class="btn btn-primary btn-sm w-100 fw-bold py-2 shadow-sm" disabled><i class="fa-solid fa-play me-2"></i>RUN ANALYSIS</button>
+                                <div id="run-analysis-status" class="status-line"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-3 pt-2 border-top">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="fw-bold mb-0 text-primary small">Results Table</h6>
+                            <div class="d-flex align-items-center gap-2">
+                                <span id="res-row-count" class="badge bg-light text-dark border">0 rows</span>
+                                <button class="btn btn-sm btn-outline-primary fw-bold extra-small" id="btn-dl-csv"><i class="fa-solid fa-download me-1"></i>CSV</button>
+                            </div>
+                        </div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-7">
+                                <label for="res-sort-filter" class="extra-small fw-bold mb-1 text-muted uppercase">Sort</label>
+                                <select id="res-sort-filter" class="form-select form-select-sm extra-small">
+                                    <!-- <option value="fdr_asc">FDR: Significant (Low to High)</option> -->
+                                    <option value="fc_desc">LogFC: High to Low (Up)</option>
+                                    <option value="fc_asc">LogFC: Low to High (Down)</option>
+                                    <option value="abs_fc_desc">|LogFC|: High to Low</option>
+                                </select>
+                            </div>
+                            <div class="col-5">
+                                <label for="res-min-filter" class="extra-small fw-bold mb-1 text-muted uppercase">FDR &lt;=</label>
+                                <input id="res-min-filter" type="number" class="form-control form-control-sm extra-small" value="0.05" min="0" max="1" step="0.001">
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <input id="res-search" class="form-control form-control-sm extra-small" placeholder="Search feature name..." />
+                                </div>
+                                <div class="col-6">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text extra-small px-1" style="font-size:0.68rem;">|logFC| &gt;=</span>
+                                        <input id="res-fc-threshold" type="number" class="form-control form-control-sm extra-small" value="0.5" min="0" step="0.1">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="table-responsive-scroller" style="max-height: 575px;">
+                            <table class="table table-sm table-hover border text-center table-xs mb-0" id="res-table">
+                                <thead class="table-dark sticky-top">
+                                    <tr>
+                                        <th><i class="fa-solid fa-tag"></i></th>
+                                        <th>Feature</th>
+                                        <th>LogFC</th>
+                                        <th>FDR</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="results-panel">
+                <div id="split-workspace" class="result-card split-workspace d-none"></div>
+                <div id="results-container" class="results-wrapper d-none">
+                    <div class="result-card results-switcher flex-shrink-0">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="btn-group btn-group-sm results-tabs" role="group" aria-label="Result views">
+                                <button id="result-tab-overview" type="button" class="btn btn-outline-primary active">Overview</button>
+                                <button id="result-tab-enrichment" type="button" class="btn btn-outline-primary">Enrichment</button>
+                            </div>
+                            <div id="analysis-compare-chip" class="analysis-chip">No DEA loaded</div>
+                        </div>
+                    </div>
+
+                    <div id="overview-panel" class="results-body">
+                        <div class="results-row-1">
+                            <div class="result-card volcano-card">
+                                <div class="d-flex justify-content-between align-items-center mb-1 flex-shrink-0">
+                                    <h6 id="volcano-title" class="fw-bold mb-0 text-primary small">Volcano Plot</h6>
+                                    <div id="volcano-config-anchor"></div>
+                                </div>
+                                <div id="volcano-plot" class="volcano-container"></div>
+                            </div>
+                        </div>
+                        <div class="results-row-2">
+                            <div class="result-card violin-card">
+                                <div class="d-flex justify-content-between align-items-center mb-2 flex-shrink-0">
+                                    <h6 class="fw-bold mb-0 text-primary small">Violin Plots</h6>
+                                    <div class="small text-muted">Select features from the table to load plots</div>
+                                </div>
+                                <div class="violin-scroll">
+                                    <div id="violin-grid" class="violin-grid">
+                                        <div class="violin-item empty">Select up to 3 features to fill the first row from left to right. More selections continue on the next row.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="enrichment-panel" class="results-body d-none">
+                        <div class="result-card enrichment-launch-card">
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <div>
+                                    <h6 class="fw-bold mb-1 text-primary small">Run Enrichment From Current DE</h6>
+                                    <!-- <div class="small text-muted">Overview and Enrichment are both tied to the DEA run selected from history or newly completed.</div> -->
+                                </div>
+                                <button id="btn-open-enrichment-modal" class="btn btn-primary btn-sm fw-bold">
+                                    <i class="fa-solid fa-dna me-2"></i>Run Enrichment
+                                </button>
+                            </div>
+
+                            <div class="enrichment-summary-grid">
+                                <div class="summary-tile">
+                                    <div class="summary-tile-label">DEA Comparison</div>
+                                    <div id="enrichment-current-comparison" class="summary-tile-value">No DEA selected</div>
+                                </div>
+                                <div class="summary-tile">
+                                    <div class="summary-tile-label">Current Analysis</div>
+                                    <div id="enrichment-current-analysis" class="summary-tile-value">Load a DEA result from history or run a new one.</div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h6 class="fw-bold mb-0 text-primary small">History</h6>
+                                <!-- <div class="small text-muted">Hover a run to inspect configuration, then click to view its enrichment results.</div> -->
+                            </div>
+
+                            <div>
+                                <input id="enrichment-history-search" class="form-control form-control-sm" placeholder="Search enrichment history by title, database, or comparison..." />
+                            </div>
+
+                            <div id="enrichment-history-list" class="enrichment-history-list">
+                                <div class="enrichment-history-empty">Load a DEA result first to see related enrichment history.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Inline enrichment result view -->
+    <div id="enrichment-inline-view">
+        <div class="enrich-inline-topbar">
+            <a id="btn-enrichment-back" href="#" class="d-flex align-items-center gap-1 text-secondary text-decoration-none small fw-bold">
+                <i class="fa-solid fa-arrow-left"></i>Back
+            </a>
+            <span id="enrichment-inline-title" class="fw-bold text-primary small"></span>
+        </div>
+        <div id="enrichment-inline-loading" style="position:absolute;inset:0;top:40px;display:flex;align-items:center;justify-content:center;background:#fff;z-index:1;">
+            <div class="text-center text-muted">
+                <div class="spinner-border spinner-border-sm mb-2" role="status"></div>
+                <div class="small">Loading enrichment&hellip;</div>
+            </div>
+        </div>
+        <iframe id="enrichment-inline-frame" src="" title="Enrichment Results"></iframe>
+    </div>
+
+    <div class="modal fade" id="run-enrichment-modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <h5 class="modal-title">Run Enrichment</h5>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3 mb-3">
+                        <div class="col-lg-4">
+                            <label class="form-label form-label-sm fw-bold">Molecule type</label>
+                            <select id="enrichment-molecule-type" class="form-select form-select-sm">
+                                <option value="Gene" selected>Gene / Protein</option>
+                                <option value="Lipid">Lipid</option>
+                            </select>
+                        </div>
+                        <div class="col-lg-4">
+                            <label class="form-label form-label-sm fw-bold">Analysis Method</label>
+                            <select id="enrichment-method" class="form-select form-select-sm">
+                                <option value="GSEA" selected>GSEA (Gene Set Enrichment Analysis)</option>
+                                <option value="ORA">ORA (Over-Representation Analysis)</option>
+                            </select>
+                        </div>
+                        <div class="col-lg-4">
+                            <label class="form-label form-label-sm fw-bold">Name</label>
+                            <input id="enrichment-name" type="text" class="form-control form-control-sm" placeholder="Enter enrichment run name" />
+                        </div>
+                        <div class="col-lg-3" id="enrichment-db-col">
+                            <label class="form-label form-label-sm fw-bold">Database</label>
+                            <div class="dropdown w-100">
+                                <button id="enrichment-db-button" class="btn btn-outline-secondary btn-sm w-100 text-start dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">Select database(s)…</button>
+                                <div id="enrichment-db-menu" class="dropdown-menu database-menu p-3 w-100"></div>
+                            </div>
+                        </div>
+                        <div class="col-lg-3" id="enrichment-char-col" style="display:none;">
+                            <label class="form-label form-label-sm fw-bold">Lipid characteristics</label>
+                            <div class="dropdown w-100">
+                                <button id="enrichment-char-button" class="btn btn-outline-secondary btn-sm w-100 text-start dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">Select characteristic(s)…</button>
+                                <div id="enrichment-char-menu" class="dropdown-menu database-menu p-3 w-100"></div>
+                            </div>
+                        </div>
+                        <div class="col-12" id="enrichment-mapping-note" style="display:none;"></div>
+                        <div class="col-lg-3" id="enrichment-input-type-col" style="display:none;">
+                            <label class="form-label form-label-sm fw-bold">Identifier type <span class="text-danger">*</span></label>
+                            <select id="enrichment-input-type" class="form-select form-select-sm">
+                                <option value="Gene" selected>Gene symbol</option>
+                                <option value="Ensembl">Ensembl ID</option>
+                                <option value="Uniprot">UniProt ID</option>
+                            </select>
+                            <div class="modal-field-note mt-1">Required for Human Protein Atlas databases.</div>
+                        </div>
+                        <div class="col-lg-4" id="enrichment-feature-source-col" style="display:none;">
+                            <label class="form-label form-label-sm fw-bold">Feature Selection</label>
+                            <select id="enrichment-feature-source" class="form-select form-select-sm">
+                                <option value="all" selected>All DEA features</option>
+                                <option value="up">Upregulated features (LogFC &gt; 0)</option>
+                                <option value="down">Downregulated features (LogFC &lt; 0)</option>
+                            </select>
+                        </div>
+                        <div class="col-12" id="enrichment-ranking-metric-row">
+                            <label class="form-label form-label-sm fw-bold">Ranking metric</label>
+                            <input id="enrichment-ranking-metric" type="text" class="form-control form-control-sm" value="sign(Log2FC) x -Log10FDR" readonly />
+                        </div>
+                        <div class="col-12">
+                            <div class="summary-tile">
+                                <div class="summary-tile-label">Current DEA Input</div>
+                                <div id="enrichment-modal-source" class="summary-tile-value">-</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="enrichment-ranking-preview-section">
+                        <div class="fw-bold mb-2">Ranking Preview</div>
+                        <div class="rank-preview-wrap">
+                            <table class="table table-sm table-striped rank-preview-table">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Feature</th>
+                                        <th>Rank</th>
+                                        <th>LogFC</th>
+                                        <th>FDR</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="enrichment-rank-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div id="enrichment-ora-preview-section" style="display:none;">
+                        <div class="fw-bold mb-2">Feature Preview</div>
+                        <div class="rank-preview-wrap">
+                            <table class="table table-sm table-striped rank-preview-table">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Feature</th>
+                                        <th>LogFC</th>
+                                        <th>FDR</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="enrichment-ora-feature-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" id="btn-run-enrichment" class="btn btn-primary btn-sm fw-bold">Run</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script type="module" src="./src/js/t-test.js"></script>
+</body>
+</html>

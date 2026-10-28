@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Analysis Path - Lipid Analytic</title>
+    <link rel="icon" href="./src/img/logo1.png" type="image/png" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="./src/css/main.css" />
+    <style>
+        .main-layout {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .content-scroller {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 1.5rem 2.5rem;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .page-title {
+            font-weight: 800;
+            font-size: 1.5rem;
+            color: #212529;
+            margin-top: 0;
+            margin-bottom: 1.5rem !important;
+        }
+
+        .ana-card { border: 1px solid #eee; border-radius: 12px; background: #fff; transition: 0.3s; height: 100%; border-top: 4px solid #dee2e6; }
+        .ana-card:hover { border-top-color: #6c757d; box-shadow: 0 10px 20px rgba(0,0,0,0.05); transform: translateY(-2px); }
+        .biomarker-card { border-top: 4px solid #dc3545; background: #fffcfc; }
+        .ana-title { font-weight: 700; font-size: 1rem; color: #212529; margin-bottom: 15px; }
+        .ana-links a { text-decoration: none; color: #4b5563; font-size: 0.85rem; display: block; padding: 6px 12px; border-radius: 6px; border: 1px solid #f0f0f0; margin-bottom: 5px; background: #fff; }
+        .ana-links a:hover { background-color: #f3f4f6; color: #0d6efd; padding-left: 18px; }
+
+        .btn-toggle-info { background: none; border: none; color: #dc3545; font-size: 0.8rem; font-weight: bold; padding: 0; margin-top: 10px; text-decoration: underline; }
+        .info-content { display: none; font-size: 0.85rem; color: #666; margin-top: 15px; line-height: 1.6; }
+        .info-content.show { display: block; }
+
+        .recommend-tag { font-size: 0.65rem; background: #fff3cd; color: #856404; padding: 2px 8px; border-radius: 20px; font-weight: bold; margin-left: 10px; border: 1px solid #ffeeba; }
+    </style>
+    <script type="module" src="./src/js/auth-gate.js"></script>
+</head>
+<body class="analysis-page">
+    <div id="header-placeholder"></div>
+
+    <div class="container-fluid px-0">
+        <div class="main-layout">
+            <div id="sidebar-placeholder"></div>
+
+            <main class="content-scroller">
+                <h3 class="page-title">Select an analysis path to explore</h3>
+
+                <div class="row g-4">
+                    <div class="col-12">
+                        <div class="ana-card biomarker-card p-4">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="ana-title text-danger mb-0">
+                                    <i class="fa-solid fa-microscope me-2"></i>Biomarker Discovery (OLS + ROC + Correlation)
+                                </div>
+                                <a href="biomarker.html" class="btn btn-danger btn-sm px-4 fw-bold shadow-sm run-btn">
+                                    Run Analysis <i class="fa-solid fa-play ms-2"></i>
+                                </a>
+                            </div>
+                            
+                            <button class="btn-toggle-info" onclick="toggleInfo('biomarker-info')">
+                                <i class="fa-solid fa-circle-info me-1"></i> Learn more about this analysis
+                            </button>
+                            
+                            <div id="biomarker-info" class="info-content border-top pt-3">
+                                Discover robust lipid biomarkers using Linear Models (OLS) and evaluate diagnostic power with ROC analysis. Integrate correlation matrices to understand lipid-lipid associations.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="ana-card p-4">
+                            <div class="ana-title text-primary"><i class="fa-solid fa-chart-column me-2"></i>Univariate Analysis</div>
+                            <div class="ana-links">
+                                <a href="t-test.html" id="link-ttest"> Differential Expression Analysis (T-test/Mann-Whitney)</a>
+                                <a href="anova.html" id="link-anova">ANOVA/Kruskal-Wallis (Post-hoc)</a>
+                                <a href="heatmapexpression.html">Heatmap Expression</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="ana-card p-4">
+                            <div class="ana-title text-success"><i class="fa-solid fa-cube me-2"></i>Multivariate Analysis</div>
+                            <div class="ana-links">
+                                <a href="pca.html">Principal Component Analysis (PCA)</a>
+                                <a href="plsda.html">Partial Least Squares-DA (PLS-DA)</a>
+                                <a href="oplsda.html">Orthogonal PLS-DA (OPLS-DA)</a>
+                                <a href="vip-score.html">VIP Score Analysis</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="ana-card p-4">
+                            <div class="ana-title text-warning"><i class="fa-solid fa-diagram-project me-2"></i>Clustering</div>
+                            <div class="ana-links">
+                                <a href="heatmap.html">Heatmap & Hierarchical Clustering</a>
+                                <a href="kmeans.html">K-means Clustering</a>
+                                <a href="som.html">Self-Organizing Map (SOM)</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- <div class="col-md-6">
+                        <div class="ana-card p-4">
+                            <div class="ana-title text-primary"><i class="fa-solid fa-brain me-2"></i>Classification & Feature Selection</div>
+                            <div class="ana-links">
+                                <a href="random-forest.html">Random Forest</a>
+                                <a href="svm.html">Support Vector Machine (SVM)</a>
+                            </div>
+                        </div>
+                    </div> -->
+                </div>
+            </main>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- <script src="./src/js/header-loader.js"></script> -->
+    <script type="module" src="./src/js/ana.js"></script>
+    <script>
+        window.toggleInfo = function(id) {
+            const content = document.getElementById(id);
+            content.classList.toggle('show');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Diagnose</title>
+</head>
+<body style="display: block; font-family: monospace; padding: 20px;">
+    <h2>LipidPortal Diagnostic</h2>
+    <pre id="output">Running...</pre>
+    <script type="module">
+        const out = document.getElementById("output");
+        const log = (...args) => {
+            out.textContent += "\n" + args.map(a => typeof a === "object" ? JSON.stringify(a, null, 2) : a).join(" ");
+        };
+
+        try {
+            log("1. Loading firebase-config.js...");
+            const { getToken, getStoredUser, API_BASE } = await import("./src/js/firebase-config.js");
+            log("   API_BASE:", API_BASE);
+            
+            const token = getToken();
+            log("2. Token in localStorage:", token ? token.substring(0, 30) + "..." : "NULL");
+            
+            const user = getStoredUser();
+            log("3. User in localStorage:", user);
+            
+            if (!token) {
+                log("\nERROR: No token found. Please login first at login.html");
+            } else {
+                log("\n4. Testing API: GET /auth/me");
+                try {
+                    const res = await fetch(`${API_BASE}/auth/me`, {
+                        headers: { "Authorization": `Bearer ${token}` }
+                    });
+                    log("   Status:", res.status);
+                    if (res.ok) {
+                        const me = await res.json();
+                        log("   User:", me);
+                    } else {
+                        log("   Response:", await res.text());
+                    }
+                } catch (e) {
+                    log("   FETCH ERROR:", e.message);
+                }
+                
+                log("\n5. Testing API: GET /projects");
+                try {
+                    const res = await fetch(`${API_BASE}/projects`, {
+                        headers: { "Authorization": `Bearer ${token}` }
+                    });
+                    log("   Status:", res.status);
+                    if (res.ok) {
+                        const projects = await res.json();
+                        log("   Projects count:", projects.length);
+                        projects.forEach((p, i) => {
+                            const flat = { ...p.paths, ...p.extra, name: p.name, status: p.status };
+                            log(`   [${i}] ${p.name} | status=${p.status} | matrix=${flat.matrixPath || "N/A"}`);
+                        });
+                    } else {
+                        log("   Response:", await res.text());
+                    }
+                } catch (e) {
+                    log("   FETCH ERROR:", e.message);
+                }
+            }
+            
+            log("\n6. Testing onAuthStateChanged...");
+            const { auth, onAuthStateChanged } = await import("./src/js/firebase-config.js");
+            onAuthStateChanged(auth, (user) => {
+                log("   onAuthStateChanged callback fired! user =", user ? { uid: user.uid, email: user.email } : "null");
+            });
+            
+            log("\n7. Testing getDocs...");
+            const { db, getDocs, collection, query, where } = await import("./src/js/firebase-config.js");
+            try {
+                const q = query(collection(db, "projects"));
+                const snap = await getDocs(q);
+                log("   getDocs result: empty =", snap.empty, ", docs =", snap.docs?.length);
+                if (snap.docs) {
+                    snap.docs.forEach((d, i) => {
+                        const data = d.data();
+                        log(`   [${i}] id=${d.id}, name=${data?.name || data?.projectName || "N/A"}`);
+                    });
+                }
+            } catch (e) {
+                log("   GETDOCS ERROR:", e.message, e.stack);
+            }
+            
+            log("\n=== Done ===");
+        } catch (e) {
+            log("FATAL ERROR:", e.message, e.stack);
+        }
+    </script>
+</body>
+</html>

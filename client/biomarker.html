@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Biomarker Discovery - Lipid Analytic</title>
+    <link rel="icon" href="./src/img/logo1.png" type="image/png" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="./src/css/main.css" />
+    <style>
+        :root {
+            --biomarker-ols-top-height: 50%;
+            --biomarker-ols-results-min-height: 700px;
+            --biomarker-progression-min-height: 480px;
+            --biomarker-corr-plot-height: 690px;
+            --biomarker-roc-plot-height: calc(100vh - 150px);
+            --biomarker-roc-plot-min-height: 640px;
+            --biomarker-roc-table-max-height: 530px;
+        }
+
+        .config-panel { flex: 0 0 30%; min-height: 0; padding-right: 0.6rem; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; }
+        .results-panel { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; }
+
+        /* Override main.css: setup-card has height:100% which breaks our flex layout */
+        .config-panel .setup-card { height: auto; overflow: visible; flex-shrink: 0; border-top: 3px solid #dee2e6; }
+
+        /* History card: fill remaining space, scroll internally */
+        #shared-history-card {
+            flex: 0 0 auto !important;
+            min-height: 160px;
+            max-height: 320px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        #shared-history-card h6,
+        #shared-history-card > button { flex-shrink: 0; }
+        #analysis-history { flex: 1 1 0; min-height: 0; overflow-y: auto; }
+
+        .step-tab {
+            border: none;
+            background: none;
+            padding: 3px 7px;
+            font-weight: 600;
+            font-size: 0.56rem;
+            color: #6c757d;
+            border-bottom: 2px solid transparent;
+            transition: 0.2s;
+            white-space: nowrap;
+        }
+        .step-tab.active-ols,
+        .step-tab.active-corr,
+        .step-tab.active-roc {
+            color: #3d4a59;
+            border-bottom-color: #3d4a59;
+        }
+    </style>
+    <script type="module" src="./src/js/auth-gate.js"></script>
+</head>
+
+<body class="analysis-page">
+    <div id="header-placeholder"></div>
+    <div class="main-wrapper">
+        <div id="sidebar-placeholder"></div>
+        <main class="content-area">
+            <!-- LEFT: Config Panel 1/3 -->
+            <div class="config-panel">
+                <!-- Tabs -->
+                <div class="d-flex bg-white px-2 mb-2 shadow-sm rounded border-bottom">
+                    <button class="step-tab active-ols" data-step="ols"><i
+                            class="fa-solid fa-microscope me-1"></i>OLS</button>
+                    <button class="step-tab" data-step="corr" id="tab-corr"><i
+                        class="fa-solid fa-chart-line me-1"></i>Correlation</button>
+                    <button class="step-tab" data-step="roc" id="tab-roc"><i
+                            class="fa-solid fa-chart-area me-1"></i>ROC</button>
+                </div>
+
+                <!-- OLS Config -->
+                <div id="config-ols" class="setup-card" style="border-top-color: #0d6efd;">
+                    <button class="section-toggle" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#ols-config-body" aria-expanded="true" aria-controls="ols-config-body">
+                        <span><i class="fa-solid fa-microscope me-2 text-primary"></i>OLS Configuration</span>
+                        <i class="fa-solid fa-chevron-down"></i>
+                    </button>
+                    <div class="collapse show" id="ols-config-body">
+                        <div class="section-body">
+                            <div class="mb-2">
+                                <label class="extra-small fw-bold mb-1 text-muted">Analysis Name</label>
+                                <input type="text" id="analysis-name" class="form-control form-control-sm"
+                                    placeholder="Enter analysis name">
+                            </div>
+                            <div class="mb-2">
+                                <label class="extra-small fw-bold mb-1 text-muted">1. Target Variable</label>
+                                <div class="input-group input-group-sm mb-1">
+                                    <select id="ols-target" class="form-select fw-bold"></select>
+                                    <button class="btn btn-primary btn-sm" id="btn-config-target"><i
+                                            class="fa-solid fa-gear"></i></button>
+                                </div>
+                                <div id="target-status-box" class="p-1 border rounded bg-light extra-small"></div>
+                            </div>
+                            <div class="mb-2">
+                                <label class="extra-small fw-bold mb-1 text-muted">2. Covariates</label>
+                                <div class="meta-list" id="ols-covariates-list"></div>
+                            </div>
+                            <div id="validation-msg" class="extra-small text-danger mb-1 fw-bold"></div>
+                            <button id="btn-run-ols" class="btn btn-primary w-100 fw-bold shadow-sm py-2 btn-sm"
+                                disabled>
+                                <i class="fa-solid fa-play me-2"></i>RUN OLS
+                            </button>
+                            <div id="ols-run-status" class="run-status-line"></div>
+                            <div id="sample-overlap-info" class="extra-small text-muted mt-1 fw-bold italic"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Corr Config -->
+                <div id="config-corr" class="setup-card d-none" style="border-top-color: #198754;">
+                    <div class="history-anchor mb-2">
+                        <button id="corr-history-toggle" type="button" class="btn btn-outline-secondary btn-sm w-100">
+                            <i class="fa-solid fa-clock-rotate-left me-1"></i> History
+                        </button>
+                        <div id="corr-history-popup" class="history-popup"></div>
+                    </div>
+                    <button class="section-toggle" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#corr-config-body" aria-expanded="true" aria-controls="corr-config-body">
+                        <span><i class="fa-solid fa-chart-line me-2 text-success"></i>Correlation Configuration</span>
+                        <i class="fa-solid fa-chevron-down"></i>
+                    </button>
+                    <div class="collapse show" id="corr-config-body">
+                        <div class="section-body">
+                            <div class="mb-2">
+                                <label class="extra-small fw-bold mb-1 text-muted">0. OLS Input <span
+                                        class="text-secondary fw-normal">(optional)</span></label>
+                                <select id="corr-ols-input" class="form-select form-select-sm"></select>
+                                <div id="corr-ols-input-msg" class="extra-small text-muted mt-1">Leave blank to run on
+                                    all matrix features.</div>
+                            </div>
+                            <fieldset id="corr-config-fields">
+                                <div class="mb-2">
+                                    <label class="extra-small fw-bold mb-1 text-muted">1. Correlation Method</label>
+                                    <select id="corr-method" class="form-select form-select-sm">
+                                        <option value="spearman" selected>Spearman</option>
+                                        <option value="pearson">Pearson</option>
+                                    </select>
+                                </div>
+                                <div class="mb-2">
+                                    <div class="extra-small text-muted mb-1"><i
+                                            class="fa-solid fa-info-circle me-1"></i>If OLS selected: significant
+                                        features (FDR &lt; 0.05) used. Otherwise: all matrix features.</div>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="extra-small fw-bold mb-1 text-muted">2. Clinical Metadata</label>
+                                    <div class="meta-list" id="corr-meta-list"></div>
+                                </div>
+                                <div id="corr-validation-msg" class="extra-small text-danger mb-1 fw-bold"></div>
+                                <button id="btn-run-corr" class="btn btn-success w-100 fw-bold shadow-sm py-2 btn-sm"
+                                    disabled>
+                                    <i class="fa-solid fa-bolt me-2"></i>RUN CORRELATION
+                                </button>
+                                <div id="corr-run-status" class="run-status-line"></div>
+                            </fieldset>
+                        </div>
+                    </div>
+
+                    <div class="mt-3 pt-2 border-top">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-bold text-success small">Correlation Results</span>
+                            <div class="d-flex align-items-center gap-2">
+                                <span id="corr-row-count" class="badge bg-light text-dark border">0 features</span>
+                                <button class="btn btn-sm btn-outline-success fw-bold extra-small"
+                                    id="btn-dl-corr-csv"><i class="fa-solid fa-file-csv me-1"></i>CSV</button>
+                            </div>
+                        </div>
+                        <div class="row g-1 mb-2">
+                            <div class="col-6">
+                                <label class="extra-small fw-bold mb-1 text-muted">Search</label>
+                                <input id="corr-search" class="form-control form-control-sm"
+                                    placeholder="Search feature...">
+                            </div>
+                            <div class="col-3">
+                                <label for="corr-min-r" class="extra-small fw-bold mb-1 text-muted">|r| &ge;</label>
+                                <input id="corr-min-r" type="number" class="form-control form-control-sm" value="0.1"
+                                    min="0" max="1" step="0.01">
+                            </div>
+                            <div class="col-3">
+                                <label for="corr-max-fdr" class="extra-small fw-bold mb-1 text-muted">FDR &lt;</label>
+                                <input id="corr-max-fdr" type="number" class="form-control form-control-sm" value="0.05"
+                                    min="0" max="1" step="0.01">
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center justify-content-between mb-2 gap-2">
+                            <button class="btn btn-xs btn-outline-secondary px-2 py-0 extra-small"
+                                id="btn-deselect-all-corr"><i class="fa-solid fa-square me-1"></i><span
+                                    id="corr-toggle-label">Deselect All</span></button>
+                            <div class="d-flex align-items-center gap-1 ms-auto">
+                                <label for="corr-r-display-select" class="extra-small fw-bold text-muted mb-0">Show |r| by</label>
+                                <select id="corr-r-display-select" class="form-select form-select-sm extra-small" style="width: 220px;">
+                                    <option value="__best__">Best |r| (all clinical vars)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="table-responsive"
+                            style="max-height: var(--biomarker-roc-table-max-height); overflow-y: auto;">
+                            <table class="table table-sm table-hover border text-center extra-small"
+                                id="corr-feature-table">
+                                <thead class="table-dark sticky-top">
+                                    <tr>
+                                        <th>Select</th>
+                                        <th>Feature</th>
+                                        <th>|r|</th>
+                                        <th>FDR</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ROC Config -->
+                <div id="config-roc" class="setup-card d-none" style="border-top-color: #dc3545;">
+                    <div class="history-anchor mb-2">
+                        <button id="roc-history-toggle" type="button" class="btn btn-outline-secondary btn-sm w-100">
+                            <i class="fa-solid fa-clock-rotate-left me-1"></i> History
+                        </button>
+                        <div id="roc-history-popup" class="history-popup"></div>
+                    </div>
+                    <button class="section-toggle" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#roc-config-body" aria-expanded="true" aria-controls="roc-config-body">
+                        <span><i class="fa-solid fa-chart-area me-2 text-danger"></i>ROC Configuration</span>
+                        <i class="fa-solid fa-chevron-down"></i>
+                    </button>
+                    <div class="collapse show" id="roc-config-body">
+                        <div class="section-body">
+                            <div class="mb-2">
+                                <label class="extra-small fw-bold mb-1 text-muted">0. OLS Input <span
+                                        class="text-secondary fw-normal">(optional)</span></label>
+                                <select id="roc-ols-input" class="form-select form-select-sm"></select>
+                                <div id="roc-ols-input-msg" class="extra-small text-muted mt-1">Leave blank to run on
+                                    all matrix features.</div>
+                            </div>
+                            <fieldset id="roc-config-fields">
+                                <div class="mb-2">
+                                    <label class="extra-small fw-bold mb-1 text-muted">1. Categorical Metadata</label>
+                                    <select id="roc-target" class="form-select form-select-sm"></select>
+                                    <div id="roc-target-status" class="extra-small text-muted mt-1"></div>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="extra-small fw-bold mb-1 text-muted">2. Comparisons</label>
+                                    <div class="meta-list" id="roc-comparisons-list"></div>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="extra-small fw-bold mb-1 text-muted">3. Mode</label>
+                                    <select id="roc-mode" class="form-select form-select-sm">
+                                        <option value="panel" selected>Panel — 2 groups (feature loop + CV)</option>
+                                        <option value="feature">Per-feature</option>
+                                    </select>
+                                </div>
+                                <div id="roc-panel-opts" class="mb-2 border rounded p-2 bg-light">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <label class="extra-small fw-bold text-muted mb-0">Panel configurations</label>
+                                        <span id="roc-cfg-count" class="badge bg-danger">0 active</span>
+                                    </div>
+                                    <div class="extra-small text-muted mb-2">Each active config adds one ROC curve for the same comparison. Configs are kept between runs — remove those you don't want.</div>
+                                    <div id="roc-cfg-list" class="mb-2 d-flex flex-column gap-1"></div>
+                                    <div class="d-flex gap-2 mb-2">
+                                        <input id="roc-cfg-name" type="text" class="form-control form-control-sm" placeholder="Config name (e.g. auto LR)">
+                                        <span id="roc-cfg-model-wrap"><select id="roc-cfg-model" class="form-select form-select-sm" style="width: 88px; min-width: 88px;">
+                                            <option value="logit" selected>LR</option>
+                                            <option value="rf">RF</option>
+                                        </select></span>
+                                        <select id="roc-cfg-feature-mode" class="form-select form-select-sm" style="max-width: 170px;">
+                                            <option value="auto" selected>Auto top-N greedy</option>
+                                            <option value="manual">Manual features</option>
+                                        </select>
+                                    </div>
+                                    <div id="roc-cfg-manual-box" class="d-none mb-2">
+                                        <input id="roc-cfg-feature-search" class="form-control form-control-sm mb-1" placeholder="Search feature…">
+                                        <div id="roc-cfg-feature-list" class="meta-list" style="max-height: 140px; overflow-y: auto;"></div>
+                                        <div class="extra-small text-muted">Selected: <span id="roc-cfg-picked-count">0</span> feature(s)</div>
+                                    </div>
+                                    <div class="form-check mb-1">
+                                        <input class="form-check-input" type="checkbox" id="roc-cfg-include-clinical">
+                                        <label class="form-check-label extra-small" for="roc-cfg-include-clinical">+ numeric metadata (clinical)</label>
+                                    </div>
+                                    <div id="roc-clinical-list" class="meta-list d-none" style="max-height: 110px; overflow-y: auto;"></div>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="d-flex align-items-center gap-2 flex-fill" id="roc-cfg-topn-wrap">
+                                            <input id="roc-cfg-top-n" type="number" min="2" max="100" value="20" class="form-control form-control-sm" style="max-width: 90px;" title="Top-N for auto mode">
+                                            <span class="extra-small text-muted">top-N (auto mode)</span>
+                                        </div>
+                                        <button id="roc-cfg-add" class="btn btn-outline-danger btn-sm" type="button"><i class="fa-solid fa-plus me-1"></i>Add config</button>
+                                    </div>
+                                </div>
+                                <div id="roc-validation-msg" class="extra-small text-danger mb-1 fw-bold"></div>
+                                <button id="btn-run-roc" class="btn btn-danger w-100 fw-bold shadow-sm py-2 btn-sm"
+                                    disabled>
+                                    <i class="fa-solid fa-chart-area me-2"></i>RUN ROC
+                                </button>
+                                <div id="roc-run-status" class="run-status-line"></div>
+                            </fieldset>
+                        </div>
+                    </div>
+
+                    <div class="mt-3 pt-2 border-top" id="roc-feature-results-block">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-bold text-danger small">ROC Results (per-feature)</span>
+                            <div class="d-flex align-items-center gap-2">
+                                <span id="roc-row-count" class="badge bg-light text-dark border">0 rows</span>
+                                <button class="btn btn-sm btn-outline-danger fw-bold extra-small" id="btn-dl-roc-csv"><i
+                                        class="fa-solid fa-file-csv me-1"></i>CSV</button>
+                            </div>
+                        </div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-7">
+                                <label for="roc-sort-by" class="extra-small fw-bold mb-1 text-muted">Sort</label>
+                                <select id="roc-sort-by" class="form-select form-select-sm">
+                                    <option value="auc_desc">AUC ↓</option>
+                                    <option value="auc_asc">AUC ↑</option>
+                                    <option value="ci_low_desc">CI ↓</option>
+                                    <option value="ci_high_desc">CI ↑</option>
+                                    <option value="feature_asc">Feature name A-Z</option>
+                                </select>
+                            </div>
+                            <div class="col-5">
+                                <label for="roc-min-auc" class="extra-small fw-bold mb-1 text-muted">Min AUC</label>
+                                <input id="roc-min-auc" type="number" class="form-control form-control-sm" value="0"
+                                    min="0" max="1" step="0.001">
+                            </div>
+                        </div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-6">
+                                <label class="extra-small fw-bold mb-1 text-muted">Search</label>
+                                <input id="roc-search" class="form-control form-control-sm"
+                                    placeholder="Search feature name..." />
+                            </div>
+                            <div class="col-3">
+                                <label for="roc-ci-low" class="extra-small fw-bold mb-1 text-muted">CI &gt;</label>
+                                <input id="roc-ci-low" type="number" class="form-control form-control-sm" value="0.5"
+                                    min="0" max="1" step="0.01">
+                            </div>
+                            <div class="col-3">
+                                <label for="roc-ci-high" class="extra-small fw-bold mb-1 text-muted">CI &lt;</label>
+                                <input id="roc-ci-high" type="number" class="form-control form-control-sm" value="1"
+                                    min="0" max="1" step="0.01">
+                            </div>
+                        </div>
+                        <button class="btn btn-sm btn-outline-secondary mb-2 w-100" id="btn-deselect-all-roc"><i
+                                class="fa-solid fa-square me-1"></i>Deselect All</button>
+                        <div class="table-responsive"
+                            style="max-height: var(--biomarker-roc-table-max-height); overflow-y: auto;">
+                            <table class="table table-sm table-hover border text-center extra-small" id="roc-table">
+                                <thead class="table-dark sticky-top">
+                                    <tr>
+                                        <th>Select</th>
+                                        <th>Feature</th>
+                                        <th>AUC</th>
+                                        <th>Cut-off</th>
+                                        <th>CI Low</th>
+                                        <th>CI High</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="mt-3 pt-2 border-top d-none" id="roc-panel-table-block">
+                        <span class="fw-bold text-danger small d-block mb-2">Panel results (per config)</span>
+                        <div class="table-responsive" style="max-height: 420px; overflow-y: auto;">
+                            <table class="table table-sm table-hover border text-center extra-small" id="roc-panel-table">
+                                <thead class="table-dark sticky-top">
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Config</th>
+                                        <th>Model</th>
+                                        <th>Features</th>
+                                        <th>Clinical</th>
+                                        <th>AUC</th>
+                                        <th>CI Low</th>
+                                        <th>CI High</th>
+                                        <th>sens@90</th>
+                                        <th>sens@95</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- History -->
+                <div id="shared-history-card" class="setup-card history-section" style="border-top-color: #6c757d;">
+                    <h6 class="fw-bold mb-2 text-secondary"><i class="fa-solid fa-history me-2"></i>History</h6>
+                    <div id="analysis-history"></div>
+                    <button id="btn-delete-selected" class="btn btn-outline-danger btn-sm w-100 mt-2" disabled>Delete
+                        Selected</button>
+                    <button id="btn-delete-all" class="btn btn-danger btn-sm w-100 mt-1">Delete All</button>
+                </div>
+            </div>
+
+            <!-- RIGHT: Results Panel 2/3 -->
+            <div class="results-panel">
+                <!-- OLS Results -->
+                <div id="ols-results-container" class="bg-white rounded p-3 shadow-sm d-none"
+                    style="height: calc(100vh - 120px); min-height: var(--biomarker-ols-results-min-height);">
+                    <div class="d-flex flex-column h-100">
+                        <div
+                            style="flex: 1 1 0; min-height: 250px; overflow: hidden; display: flex; flex-direction: column;">
+                            <div class="d-flex justify-content-between align-items-center mb-2 border-bottom pb-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="fw-bold text-primary small">OLS Results</span>
+                                    <span id="ols-row-count" class="badge bg-light text-dark border">0 rows</span>
+                                </div>
+                                <button class="btn btn-sm btn-outline-primary fw-bold extra-small"
+                                    id="btn-dl-ols-csv"><i class="fa-solid fa-file-csv me-1"></i>CSV</button>
+                            </div>
+                            <div class="filter-grid">
+                                <label>Sort</label>
+                                <select id="sort-by" class="form-select form-select-sm">
+                                    <option value="fdr">FDR ↑</option>
+                                    <option value="adj_r2">Adj. R² ↓</option>
+                                    <option value="beta">|Beta| ↓</option>
+                                </select>
+
+                                <label>Min |Beta|</label>
+                                <input id="ols-min-filter" type="number" class="form-control form-control-sm" value="0"
+                                    step="0.001">
+
+                                <label>|R²| ≥</label>
+                                <input id="ols-min-r2" type="number" class="form-control form-control-sm" value="0.2"
+                                    step="0.01">
+                            </div>
+
+                            <div class="filter-grid">
+                                <label>Search</label>
+                                <input id="ols-search" class="form-control form-control-sm" placeholder="Feature...">
+
+                                <label>P &lt;</label>
+                                <input id="ols-max-pvalue" type="number" class="form-control form-control-sm" value="1"
+                                    step="0.01">
+
+                                <label>FDR &lt;</label>
+                                <input id="ols-max-fdr" type="number" class="form-control form-control-sm" value="1"
+                                    step="0.01">
+                            </div>
+                            <div class="table-responsive" style="flex-grow: 1; min-height: 0;">
+                                <table class="table table-sm table-hover border text-center" id="ols-table">
+                                    <thead class="table-dark sticky-top">
+                                        <tr>
+                                            <th>Feature</th>
+                                            <th>Beta</th>
+                                            <th>P-value</th>
+                                            <th>FDR (BH)</th>
+                                            <th>Adj. R²</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="mt-3 pt-2 border-top"
+                            style="flex: 1 1 0; min-height: 550px; display: flex; flex-direction: column;">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <div class="fw-bold text-primary small"><i
+                                    class="fa-solid fa-wave-square me-1"></i>VISUALIZE FEATURE PROGRESSION</div>
+                                <div id="ols-config-anchor" style="position:relative;z-index:100;"></div>
+                            </div>
+                            <div id="ols-feature-visual-panel"
+                                class="border rounded bg-light d-flex align-items-center justify-content-center text-muted small"
+                                style="flex-grow: 1; min-height: 0;">
+                                Click one feature in OLS result table to visualize progression.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Corr Results -->
+                <div id="corr-results-container" class="bg-white rounded p-3 shadow-sm d-none mt-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2 border-bottom pb-2">
+                        <span class="fw-bold text-success"><i class="fa-solid fa-chart-line me-2"></i>Spearman
+                            Correlation Heatmap</span>
+                        <div id="corr-config-anchor" style="position:relative;z-index:100;"></div>
+                    </div>
+                    <div id="corr-heatmap-plot"
+                        style="width: 100%; min-height: 400px; height: var(--biomarker-corr-plot-height);"></div>
+                </div>
+
+                <!-- ROC Results -->
+                <div id="roc-results-container" class="bg-white rounded p-3 shadow-sm d-none mt-3">
+                    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+                        <span class="fw-bold text-danger d-flex align-items-center"><i class="fa-solid fa-chart-line me-2"></i>ROC Curves &amp;
+                            Biomarker Performance
+                        </span>
+                        <div id="roc-config-anchor-legacy" style="position:relative;z-index:100;"></div>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <div id="roc-plot"
+                                style="width:100%; height: var(--biomarker-roc-plot-height); min-height: var(--biomarker-roc-plot-min-height);">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ROC Panel (fig6-style, 2-group) -->
+                <div id="roc-panel-section" class="bg-white rounded p-3 shadow-sm mt-3 d-none">
+                    <div class="d-flex justify-content-between align-items-center mb-2 border-bottom pb-2 flex-wrap gap-2">
+                        <span class="fw-bold text-danger d-flex align-items-center gap-2"><i class="fa-solid fa-layer-group"></i>ROC Panel Results
+                            <span id="roc-panel-comp-label" class="badge bg-light text-dark border extra-small"></span>
+                            <span id="roc-panel-comp-pills" class="btn-group btn-group-sm d-none"></span>
+                        </span>
+                        <div class="d-flex align-items-center gap-2" id="roc-panel-header-tools">
+                            <div id="roc-config-anchor" style="position:relative;z-index:100;"></div>
+                            <button id="btn-roc-configs" type="button" class="btn btn-outline-danger btn-sm d-none" title="Features & metadata used per config">
+                                <i class="fa-solid fa-list-check me-1"></i>Panel configs
+                            </button>
+                            <button id="btn-dl-roc-panel-feat" type="button" class="btn btn-outline-secondary btn-sm d-none" title="Download feature importance ranking (CSV)">
+                                <i class="fa-solid fa-arrow-down-wide-short me-1"></i>Top features CSV
+                            </button>
+                        </div>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-12"><div id="roc-panel-curves" style="width:100%;height:calc(100vh - 300px); min-height:520px;"></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="modal fade" id="roc-configs-modal" tabindex="-1">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header py-2">
+                    <h6 class="modal-title"><i class="fa-solid fa-list-check me-2 text-danger"></i>Panel configurations — selected features & metadata</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="roc-configs-modal-body"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalEncoding" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-dark text-white py-2">
+                    <h6 class="modal-title small" id="modal-title-var">Variable Encoding</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3"><label class="extra-small fw-bold">Encoding Type:</label><select
+                            id="enc-type-select" class="form-select form-select-sm">
+                            <option value="continuous">Continuous (Numeric)</option>
+                            <option value="ordinal">Ordinal (0, 1, 2...)</option>
+                            <option value="onehot">One-hot (Dummy)</option>
+                        </select></div>
+                    <div id="ordinal-order-section">
+                        <label class="extra-small fw-bold mb-1 text-primary">Assign rank to each label (0 =
+                            Reference/Control). Each rank can only be used once:</label>
+                        <div class="d-flex align-items-center gap-2 mb-1 px-1">
+                            <span class="small text-muted flex-grow-1">Label</span>
+                            <span class="extra-small text-muted" style="width:54px; text-align:center;">Rank</span>
+                        </div>
+                        <div id="modal-order-list" class="bg-light p-2 rounded border"
+                            style="max-height:320px; overflow-y:auto;"></div>
+                        <div id="enc-rank-error" class="text-danger extra-small mt-1"></div>
+                    </div>
+                </div>
+                <div class="modal-footer py-1"><button class="btn btn-sm btn-primary w-100 fw-bold"
+                        id="btn-save-encoding">Apply Configuration</button></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script type="module" src="./src/js/biomarker.js"></script>
+</body>
+
+</html>

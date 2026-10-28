@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VIP Score - Lipid Analytic</title>
+    <link rel="icon" href="./src/img/logo1.png" type="image/png" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="./src/css/main.css" />
+    <script type="module" src="./src/js/auth-gate.js"></script>
+    <style>
+        .left-panel { flex: 0 0 25%; min-width: 250px; min-height: 0; }
+        .right-panel { flex: 1 1 75%; min-width: 0; min-height: 0; }
+
+        .card-shell { border-top: 4px solid #6c757d; }
+
+        .left-main { height: 100%; overflow-y: auto; }
+
+        .panel-title { font-size: 0.79rem; font-weight: 700; color: #3d4a59; margin-bottom: 0.55rem; }
+
+        .history-list,
+        .table-scroll {
+            min-height: 0;
+            overflow: auto;
+            border: 1px solid #edf1f5;
+            border-radius: 8px;
+        }
+        .history-list { background: #fcfdff; padding: 0.45rem; }
+        .history-item:last-child { margin-bottom: 0; }
+
+        .table-xs { font-size: 0.72rem; }
+        .table-xs th, .table-xs td { padding: 4px 6px !important; }
+        .table thead th { position: sticky; top: 0; z-index: 2; }
+
+        .plot-shell { height: 100%; display: flex; flex-direction: column; }
+        .plot-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.4rem;
+        }
+        .plot-meta { font-size: 0.7rem; color: #5a6a7b; }
+
+        #splotWrap { flex: 1 1 0; min-height: 0; border: 1px solid #edf1f5; border-radius: 8px; }
+
+        .empty-box {
+            flex: 1 1 0;
+            min-height: 0;
+            border: 1px dashed #cfd9e3;
+            border-radius: 8px;
+            background: linear-gradient(180deg, #fbfcff 0%, #f4f8fb 100%);
+            color: #6c757d;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 0.75rem;
+        }
+
+        @media (max-width: 1100px) {
+            .content-area { flex-direction: column; }
+            .left-panel, .right-panel { flex: 0 0 auto; min-width: 0; }
+            .left-main { height: auto; max-height: 60vh; }
+            .right-panel { min-height: 340px; }
+        }
+    </style>
+</head>
+
+<body class="analysis-page">
+    <div class="main-wrapper">
+        <div id="sidebar-placeholder"></div>
+        <main class="content-area">
+            <section class="left-panel">
+                <div class="card-shell left-main">
+                    <div class="panel-title"><i class="fa-solid fa-layer-group me-2"></i>VIP Analysis</div>
+
+                    <!-- History button -->
+                    <div class="history-anchor">
+                        <button id="history-toggle" type="button" class="btn btn-outline-secondary btn-sm w-100">
+                            <i class="fa-solid fa-clock-rotate-left me-1"></i> History
+                        </button>
+                        <div id="history-popup" class="history-popup"></div>
+                    </div>
+
+                    <!-- User config collapsible -->
+                    <button class="section-toggle mb-1" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#vipConfigBody" aria-expanded="true" aria-controls="vipConfigBody">
+                        <span><i class="fa-solid fa-sliders me-2"></i>User Configuration</span>
+                        <i class="fa-solid fa-chevron-down chevron"></i>
+                    </button>
+                    <div class="collapse show" id="vipConfigBody">
+                        <div class="section-body">
+                            <div class="mb-2">
+                                <label class="small-heading">Analysis Name</label>
+                                <input type="text" id="vip-analysis-name" class="form-control form-control-sm"
+                                    placeholder="e.g. VIP_GroupA_vs_GroupB">
+                            </div>
+                            <div class="mb-2">
+                                <label class="small-heading">1. Input (PLS-DA / OPLS-DA)</label>
+                                <select id="vip-source-type" class="form-select form-select-sm">
+                                    <option value="PLS-DA">PLS-DA</option>
+                                    <option value="OPLS-DA">OPLS-DA</option>
+                                </select>
+                            </div>
+                            <div class="mb-2">
+                                <label class="small-heading">2. Select Run</label>
+                                <select id="vip-run-select" class="form-select form-select-sm">
+                                    <option value="">-- Select a run --</option>
+                                </select>
+                                <div id="vip-run-meta" class="history-meta mt-1"></div>
+                            </div>
+                            <div class="mb-2">
+                                <label class="small-heading">3. Comparison Pair</label>
+                                <div id="vip-pair-list" class="meta-list"></div>
+                            </div>
+                            <!-- <div class="mb-2">
+                                <label class="small-heading">Min |logFC| threshold</label>
+                                <input id="vip-log2fc-threshold" type="number" class="form-control form-control-sm"
+                                    value="0.58" min="0" step="0.1">
+                            </div> -->
+                            <button id="btn-run-vip" class="btn btn-success btn-sm w-100 fw-bold" disabled>
+                                <i class="fa-solid fa-play me-1"></i>RUN VIP ANALYSIS
+                            </button>
+                            <div id="vip-run-status" class="status-line mt-1"></div>
+                        </div>
+                    </div>
+
+                    <div class="mt-3 pt-2 border-top">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div class="panel-title mb-0"><i class="fa-solid fa-table me-2"></i>VIP Results</div>
+                            <div class="d-flex align-items-center gap-2">
+                                <span id="row-count" class="badge bg-light text-dark border">0 rows</span>
+                                <button id="btn-dl-csv" class="btn btn-sm btn-outline-secondary" disabled><i
+                                        class="fa-solid fa-download me-1"></i>CSV</button>
+                            </div>
+                        </div>
+
+                        <!-- Table filter toolbar -->
+                        <div class="row g-1 mb-2">
+                            <div class="col-6">
+                                <label class="small-heading">Sort</label>
+                                <select id="table-sort" class="form-select form-select-sm extra-small">
+                                    <option value="vip_desc">VIP high to low</option>
+                                    <option value="fdr_asc">FDR low to high</option>
+                                    <option value="abs_fc_desc">|logFC| high to low</option>
+                                    <option value="vip_asc">VIP low to high</option>
+                                    <option value="fc_desc">logFC high to low</option>
+                                    <option value="fc_asc">logFC low to high</option>
+                                </select>
+                            </div>
+                            <div class="col-3">
+                                <label class="small-heading">Min VIP</label>
+                                <input id="vip-threshold" type="number" class="form-control form-control-sm extra-small"
+                                    value="1" min="0" step="0.1">
+                            </div>
+                            <div class="col-3">
+                                <label class="small-heading">Max FDR</label>
+                                <input id="fdr-threshold" type="number" class="form-control form-control-sm extra-small"
+                                    value="0.05" min="0" max="1" step="0.05">
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <input id="table-search" class="form-control form-control-sm extra-small"
+                                placeholder="Search feature name..." />
+                        </div>
+
+                        <div class="table-scroll" style="flex:1; min-height:0; overflow:auto; max-height:600px;">
+                            <table class="table table-sm table-hover text-center mb-0" id="vip-table"
+                                style="font-size:0.71rem;">
+                                <thead class="table-dark sticky-top">
+                                    <tr>
+                                        <th style="width:30px;"><i class="fa-solid fa-tag"></i></th>
+                                        <th class="text-start">Feature</th>
+                                        <th>VIP</th>
+                                        <th>logFC</th>
+                                        <th>FDR</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="right-panel">
+                <div class="card-shell plot-shell">
+                    <div class="plot-toolbar">
+                        <div>
+                            <div class="panel-title mb-0"><i class="fa-solid fa-chart-scatter me-2"></i>S-Plot (VIP)
+                            </div>
+                            <div id="plot-subtitle" class="plot-meta">Load a run from history to render.</div>
+                        </div>
+                        <div id="splot-config-anchor"></div>
+                    </div>
+                    <div id="plot-empty" class="empty-box">Run a VIP analysis or select a run from history to render the
+                        S-Plot.</div>
+                    <div id="splotWrap" class="d-none"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+    <script type="module" src="./src/js/vip-score.js"></script>
+</body>
+
+</html> 

@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Normalization - Analytic</title>
+    <link rel="icon" href="./src/img/logo1.png" type="image/png" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="./src/css/main.css" />
+    <style>
+        body { display: none; }
+        .method-card { border: 1px solid #eee; border-radius: 12px; background: #fff; padding: 14px; height: 100%; }
+        .method-title { font-weight: bold; font-size: 0.9rem; color: #212529; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px; margin-bottom: 10px; }
+        .info-icon { cursor: help; color: #6c757d; font-size: 0.8rem; margin-left: 5px; }
+        .form-check { margin-bottom: 5px; }
+        .form-check-label { font-size: 0.79rem; cursor: pointer; display: flex; align-items: center; width: 100%; justify-content: space-between; gap: 0.4rem; }
+        .instruction-box { background-color: #f8f9fa; border-left: 4px solid #dee2e6; padding: 0.72rem 0.95rem; border-radius: 8px; }
+        
+        .tooltip-inner { font-size: 0.75rem; padding: 8px 12px; background-color: #343a40; border-radius: 4px; text-align: left; }
+        .normalize-shell { overflow-y: auto; }
+        .normalize-card { border-radius: 18px; }
+        .normalize-layout {
+            display: flex;
+            flex-direction: column;
+            gap: 0.55rem;
+        }
+        .normalize-main {
+            display: grid;
+            grid-template-columns: minmax(0, 1.65fr) minmax(280px, 0.95fr);
+            gap: 0.7rem;
+            align-items: start;
+        }
+        .normalize-config {
+            min-width: 0;
+        }
+        .normalize-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.6rem;
+        }
+        .instruction-box,
+        .instruction-box p,
+        .instruction-box li,
+        .method-card,
+        .method-card .form-check,
+        .method-card .form-select,
+        .method-card .form-control,
+        .small {
+            font-size: 0.82rem;
+        }
+        .instruction-box ul { padding-left: 1rem; margin-bottom: 0; }
+        .normalize-title { font-size: 1.45rem; }
+        .report-section {
+            background: #f7f9fb;
+            border: 1px solid #e3e8ee;
+            border-radius: 12px;
+            padding: 0.8rem;
+        }
+        .report-panel {
+            display: flex;
+            align-items: center;
+        }
+        .report-placeholder {
+            color: #7a8694;
+            font-size: 0.76rem;
+        }
+        .actions-row {
+            padding-bottom: 0.5rem;
+        }
+        @media (max-width: 992px) {
+            .normalize-main { grid-template-columns: minmax(0, 1.35fr) minmax(240px, 0.85fr); }
+            .method-card { padding: 12px; }
+            .form-check-label { font-size: 0.76rem; }
+        }
+        @media (max-width: 768px) {
+            .normalize-layout { gap: 0.6rem; }
+            .normalize-main { gap: 0.55rem; }
+            .normalize-grid { gap: 0.6rem; }
+            .method-card { padding: 10px; }
+            .form-check-label { font-size: 0.72rem; }
+            .instruction-box,
+            .instruction-box p,
+            .instruction-box li,
+            .method-card,
+            .method-card .form-check,
+            .method-card .form-select,
+            .method-card .form-control,
+            .small { font-size: 0.76rem; }
+        }
+
+        /* Command terminal */
+    </style>
+    <script type="module" src="./src/js/auth-gate.js"></script>
+</head>
+<body class="bg-light">
+    <div id="header-placeholder"></div>
+
+    <div class="container py-2 normalize-shell">
+        <div class="card shadow-sm border-0 normalize-card">
+        <div class="p-3">
+        <div class="normalize-layout">
+            <h3 class="fw-bold mb-0 normalize-title"><i class="fa-solid fa-wand-magic-sparkles text-primary me-2"></i>Data Preprocessing Pipeline</h3>
+            
+            <div class="instruction-box small text-muted">
+                <p class="mb-2">Normalization is grouped into three main goals:</p>
+                <ul>
+                    <li><b>Sample normalization:</b> adjustment for systematic differences among samples.</li>
+                    <li><b>Data transformation:</b> mathematical transformation to handle skewed distributions.</li>
+                    <li><b>Batch correction:</b> adjustment for batch effects to ensure comparability across different experimental runs.</li>
+                    <li><b>Data scaling:</b> adjusts each variable based on its dispersion.</li>
+                </ul>
+            </div>
+
+            <div class="normalize-main">
+            <div class="normalize-config">
+            <div class="normalize-grid">
+                    <div class="method-card">
+                        <div class="method-title">1. Sample Normalization</div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="sampleNorm" value="None" id="sn-none" checked>
+                            <label class="form-check-label" for="sn-none">None <i class="fa-solid fa-circle-question info-icon" data-bs-toggle="tooltip" title="Keep the original intensities unchanged. Use this if the data has already been preprocessed."></i></label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="sampleNorm" value="Sum" id="sn-sum">
+                            <label class="form-check-label" for="sn-sum">Normalization by sum <i class="fa-solid fa-circle-question info-icon" data-bs-toggle="tooltip" title="Divide each feature intensity by the total intensity of that sample to reduce injection amount variation."></i></label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="sampleNorm" value="Median" id="sn-median">
+                            <label class="form-check-label" for="sn-median">Normalization by median <i class="fa-solid fa-circle-question info-icon" data-bs-toggle="tooltip" title="Use the median instead of the sum to reduce the influence of extremely intense features."></i></label>
+                        </div>
+                        <!-- <div class="form-check">
+                            <input class="form-check-input" type="radio" name="sampleNorm" value="PQN" id="sn-pqn">
+                            <label class="form-check-label" for="sn-pqn">PQN (Reference Sample) <i class="fa-solid fa-circle-question info-icon" data-bs-toggle="tooltip" title="Probabilistic Quotient Normalization. A robust approach for correcting concentration-related dilution effects."></i></label>
+                        </div> -->
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="sampleNorm" value="Quantile" id="sn-quantile">
+                            <label class="form-check-label" for="sn-quantile">Quantile Normalization <i class="fa-solid fa-circle-question info-icon" data-bs-toggle="tooltip" title="Force all samples to share the same distribution. Useful for large peak lists."></i></label>
+                        </div>
+                    </div>
+
+                    <div class="method-card">
+                        <div class="method-title">2. Zero / Missing Value Handling</div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="zeroHandling" value="-1" id="zh-none">
+                            <label class="form-check-label" for="zh-none">None <i class="fa-solid fa-circle-question info-icon" data-bs-toggle="tooltip" title="Skip zero replacement. Zeros remain as-is. Use only if your data has no true missing values."></i></label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="zeroHandling" value="0" id="zh-hm">
+                            <label class="form-check-label" for="zh-hm">1/5 Minimum <i class="fa-solid fa-circle-question info-icon" data-bs-toggle="tooltip" title="Replace zeros with one-fifth of the minimum positive value in each feature row. Fast and robust for sparse lipidomics data."></i></label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="zeroHandling" value="1" id="zh-qrilc" checked>
+                            <label class="form-check-label" for="zh-qrilc">QRILC (Imputation) <i class="fa-solid fa-circle-question info-icon" data-bs-toggle="tooltip" title="Quantile Regression Imputation of Left-Censored data. Samples values from a truncated normal distribution fitted to each feature's observed values. Better statistical properties but slower."></i></label>
+                        </div>
+                    </div>
+
+                    <div class="method-card">
+                        <div class="method-title">3. Data Transformation</div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="dataTrans" value="None" id="dt-none" checked>
+                            <label class="form-check-label" for="dt-none">None <i class="fa-solid fa-circle-question info-icon" data-bs-toggle="tooltip" title="Keep the original linear scale."></i></label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="dataTrans" value="Log10" id="dt-log10">
+                            <label class="form-check-label" for="dt-log10">Log transformation (10) <i class="fa-solid fa-circle-question info-icon" data-bs-toggle="tooltip" title="A common transformation for bringing skewed data closer to a normal distribution."></i></label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="dataTrans" value="Log2" id="dt-log2">
+                            <label class="form-check-label" for="dt-log2">Log transformation (2) <i class="fa-solid fa-circle-question info-icon" data-bs-toggle="tooltip" title="Useful when you want fold-change calculations to stay intuitive."></i></label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="dataTrans" value="Sqrt" id="dt-sqrt">
+                            <label class="form-check-label" for="dt-sqrt">Square Root <i class="fa-solid fa-circle-question info-icon" data-bs-toggle="tooltip" title="A mild transformation for reducing variance without compressing the range too aggressively."></i></label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="dataTrans" value="Cube" id="dt-cube">
+                            <label class="form-check-label" for="dt-cube">Cube Root <i class="fa-solid fa-circle-question info-icon" data-bs-toggle="tooltip" title="Useful when the dataset contains many values close to zero."></i></label>
+                        </div>
+                    </div>
+
+                    <div class="method-card">
+                        <div class="method-title">4. Batch Correction</div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="batchCorr" value="None" id="bc-none" checked>
+                            <label class="form-check-label" for="bc-none">None <i class="fa-solid fa-circle-question info-icon" data-bs-toggle="tooltip" title="Do not apply batch-effect correction."></i></label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="batchCorr" value="Blind" id="bc-blind">
+                            <label class="form-check-label" for="bc-blind">Blind Correction (PCA-based) <i class="fa-solid fa-circle-question info-icon" data-bs-toggle="tooltip" title="Automatically reduce systematic noise without requiring an explicit batch label."></i></label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="batchCorr" value="ComBat" id="bc-combat">
+                            <label class="form-check-label" for="bc-combat">ComBat (Requires Metadata) <i class="fa-solid fa-circle-question info-icon" data-bs-toggle="tooltip" title="Apply Bayesian batch correction using a selected metadata batch column."></i></label>
+                        </div>
+                        <div id="combat-select-box" class="mt-3 p-2 border rounded bg-light d-none">
+                            <div class="d-flex gap-2">
+                                <select id="batch-column" class="form-select form-select-sm"></select>
+                                <button id="btn-view-batch-details" class="btn btn-sm btn-outline-secondary px-3">
+                                    <i class="fa-solid fa-list"></i> Labels
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="method-card" style="grid-column: span 2;">
+                        <div class="method-title">5. Data Scaling</div>
+                        <div class="d-flex gap-4 flex-wrap">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="dataScale" value="None" id="ds-none" checked>
+                                <label class="form-check-label" for="ds-none">None <i class="fa-solid fa-circle-question info-icon" data-bs-toggle="tooltip" title="Keep the original intensity magnitudes."></i></label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="dataScale" value="Auto" id="ds-auto">
+                                <label class="form-check-label" for="ds-auto">Auto Scaling (Z-score) <i class="fa-solid fa-circle-question info-icon" data-bs-toggle="tooltip" title="Mean-center each variable and divide by its standard deviation."></i></label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="dataScale" value="Pareto" id="ds-pareto">
+                                <label class="form-check-label" for="ds-pareto">Pareto Scaling <i class="fa-solid fa-circle-question info-icon" data-bs-toggle="tooltip" title="Divide by the square root of the standard deviation to reduce noise while preserving structure."></i></label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="dataScale" value="Range" id="ds-range">
+                                <label class="form-check-label" for="ds-range">Range Scaling <i class="fa-solid fa-circle-question info-icon" data-bs-toggle="tooltip" title="Rescale values to their observed range."></i></label>
+                            </div>
+                        </div>
+                    </div>
+            </div>
+            </div>
+
+            <div id="report-section" class="report-section">
+                <div id="report-content" class="alert alert-info border-0 small shadow-sm p-3 mb-0 report-panel">
+                    <div class="report-placeholder">>_</div>
+                </div>
+            </div>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center actions-row">
+                <button id="btn-back" class="btn btn-outline-secondary btn-sm px-4"><i class="fa-solid fa-arrow-left me-1"></i> Back</button>
+                <div class="d-flex gap-2">
+                    <button id="btn-open-normalized-files" type="button" class="btn btn-outline-dark btn-sm px-4 fw-bold d-none">
+                        <i class="fa-solid fa-folder-open me-1"></i> Preview/Download Files
+                    </button>
+                    <button id="btn-run-norm" class="btn btn-primary btn-sm px-4 fw-bold">Normalize Data</button>
+                    <button id="btn-go-ana" class="btn btn-success btn-sm px-4 fw-bold d-none">Continue to Analysis <i class="fa-solid fa-chevron-right ms-1"></i></button>
+                </div>
+            </div>
+        </div>
+        </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalBatchView" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-dark text-white py-2 border-0">
+                    <h6 class="modal-title fw-bold small">Batch Label Distribution</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <div id="batch-info-list" class="list-group list-group-flush small"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="shared-terminal-host"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="./src/js/header-loader.js"></script>
+    <script type="module" src="./src/js/normalize.js"></script>
+</body>
+</html>

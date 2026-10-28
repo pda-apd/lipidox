@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Documentation - Lipid Analytic</title>
+    <link rel="icon" href="./src/img/logo1.png" type="image/png" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="./src/css/main.css" />
+    <script>window.MathJax = { tex: { inlineMath: [['\\(', '\\)']], displayMath: [['$$', '$$']] }, svg: { fontCache: 'global' } };</script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+    <style>
+        body { display: block !important; }
+        #header-placeholder > header {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 1020; margin-bottom: 0 !important;
+            backdrop-filter: blur(8px); background: rgba(255,255,255,0.92) !important;
+            border-bottom: 1px solid var(--sci-border, #e5e7eb);
+        }
+        .doc-layout { max-width: 1280px; margin: 0 auto; padding: 80px 1.5rem 4rem; }
+        .doc-sidebar {
+            position: fixed; top: 88px; left: 1.5rem; width: 300px;
+            background: rgba(255,255,255,0.95); backdrop-filter: blur(8px);
+            border: 1px solid var(--sci-border, #e5e7eb); border-radius: 14px; padding: 1.3rem;
+            box-shadow: 0 2px 12px rgba(16,24,40,0.06); height: fit-content; max-height: calc(100vh - 110px); overflow-y: auto;
+            z-index: 1010;
+        }
+        @media (min-width: 1312px) { .doc-sidebar { left: calc(50% - 640px + 1.5rem); } }
+        .doc-content { margin-left: 332px; }
+        .doc-sidebar h6 { font-weight: 700; color: #1f2937; letter-spacing: 0.3px; text-transform: uppercase; font-size: 0.7rem; margin-bottom: 0.7rem; }
+        .doc-sidebar .nav-link { color: #475569; font-size: 0.82rem; padding: 0.4rem 0.6rem; border-radius: 7px; border-left: 2px solid transparent; cursor: pointer; }
+        .doc-sidebar .nav-link:hover { background: var(--sci-surface-2, #f9fafb); color: #2563eb; }
+        .doc-sidebar .nav-link.active { color: #2563eb; font-weight: 600; border-left-color: #2563eb; background: var(--sci-accent-soft, #eff6ff); }
+        .doc-section { display: none; animation: docFade .18s ease; }
+        .doc-section.active { display: block; }
+        @keyframes docFade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+        .doc-section h2 { font-weight: 700; letter-spacing: -0.01em; color: #111827; margin-bottom: 0.8rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--sci-border,#e5e7eb); }
+        .doc-section h4 { font-weight: 600; color: #1f2937; margin-top: 1.5rem; margin-bottom: 0.5rem; font-size: 1rem; }
+        .doc-section p, .doc-section li { color: #334155; font-size: 0.9rem; line-height: 1.65; }
+        .doc-section ul, .doc-section ol { padding-left: 1.2rem; }
+        .doc-section li { margin-bottom: 0.3rem; }
+        .formula { background: #f8fafc; border: 1px solid #e2e8f0; border-left: 3px solid #2563eb; border-radius: 8px; padding: 0.9rem 1rem; margin: 0.8rem 0; overflow-x: auto; }
+        .pkg { display: inline-flex; align-items: center; gap: 5px; background: #eff6ff; border: 1px solid #dbeafe; color: #1d4ed8; border-radius: 6px; padding: 1px 8px; font-size: 0.78rem; font-weight: 600; font-family: Consolas, monospace; }
+        .lead-note { background: var(--sci-accent-soft, #eff6ff); border: 1px solid #dbeafe; border-radius: 10px; padding: 0.85rem 1rem; color: #1e40af; font-size: 0.85rem; }
+        .doc-section code { background: #f1f5f9; color: #be123c; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.8rem; }
+        table.modtab { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.84rem; border: 1px solid #cbd5e1; border-radius: 10px; overflow: hidden; }
+        table.modtab th, table.modtab td { border-bottom: 1px solid #e2e8f0; padding: 0.65rem 0.85rem; vertical-align: top; background: #ffffff; }
+        table.modtab thead th { background: #1e293b; color: #fff; font-weight: 600; text-align: left; font-size: 0.78rem; letter-spacing: 0.3px; border-bottom: 2px solid #0f172a; }
+        table.modtab tbody tr:nth-child(even) td { background: #f1f5f9; }
+        table.modtab tbody tr:hover td { background: #eff6ff; }
+        table.modtab tbody tr:last-child td { border-bottom: 0; }
+        table.modtab td.module { font-weight: 600; color: #1e293b; white-space: nowrap; min-width: 130px; }
+        @media (max-width: 900px) { .doc-sidebar { position: static; left: auto; width: auto; max-width: 100%; max-height: none; } .doc-content { margin-left: 0; } }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="page-wrapper">
+        <div id="header-placeholder"></div>
+
+        <div class="doc-layout">
+            <aside class="doc-sidebar">
+                <h6><i class="fa-solid fa-list me-1"></i> Contents</h6>
+                <ul class="nav flex-column" id="doc-toc">
+                    <li class="nav-item"><a class="nav-link active" data-target="is-nist">IS/NIST preprocessing</a></li>
+                    <li class="nav-item"><a class="nav-link" data-target="filtering">Data filtering</a></li>
+                    <li class="nav-item"><a class="nav-link" data-target="normalization">Normalization</a></li>
+                    <li class="nav-item"><a class="nav-link" data-target="modules">Analysis modules</a></li>
+                </ul>
+            </aside>
+
+            <main class="doc-content">
+                <h1 class="fw-bold mb-3" style="letter-spacing:-0.02em;">Technical Documentation</h1>
+
+                <section class="doc-section active" id="is-nist">
+                    <h2>IS/NIST preprocessing</h2>
+                    <p>Optional preprocessing mode requiring a raw matrix, NIST reference samples, and an IS mapping file. Pure <span class="pkg">pandas</span> logic.</p>
+
+                    <h4>1. IS &mdash; compound/IS ratios</h4>
+                    <p>Each compound divided by its assigned internal standard. Applied to study and NIST samples alike:</p>
+                    <div class="formula">$$ \hat{x}_{ij} = \frac{x_{ij}}{s_{\text{istd}(i),\,j}} $$</div>
+
+                    <h4>2. NIST &mdash; ratio of ratios</h4>
+                    <p>Each study sample maps to a NIST sample. Each compound's ratio divided by the same compound's ratio in the mapped NIST:</p>
+                    <div class="formula">$$ \tilde{x}_{ij} = \frac{\hat{x}_{ij}}{\hat{x}_{i,\,\text{nist}(j)}} $$</div>
+                    <p>NIST samples removed after correction.</p>
+                </section>
+
+                <section class="doc-section" id="filtering">
+                    <h2>Data filtering</h2>
+                    <p>Libraries: <span class="pkg">pandas</span>, <span class="pkg">numpy</span>. Four sequential filters, each skippable by setting its threshold to 0.</p>
+
+                    <h4>A. Missing-value filter</h4>
+                    <div class="formula">$$ \text{mv}_i = \frac{\#\text{NaN in feature } i}{\#\text{samples}}, \qquad \text{keep } i \iff \text{mv}_i \le \frac{\text{mv\_threshold}}{100} $$</div>
+
+                    <h4>B. RSD filter (QC samples)</h4>
+                    <p>QC samples auto-detected by column-name match (substring <code>"rsd"</code>); requires &ge; 3, else skipped.</p>
+                    <div class="formula">$$ \text{RSD}_i = \frac{\operatorname{std}(\text{QC}_i)}{\operatorname{mean}(\text{QC}_i)}, \qquad \text{keep } i \iff \text{RSD}_i \le \frac{\text{rsd\_threshold}}{100} $$</div>
+
+                    <h4>C. Low-variance filter</h4>
+                    <div class="formula">$$ \text{IQR:}\ v_i = Q3_i - Q1_i \qquad \text{SD:}\ v_i = \sigma_i \qquad \text{MAD:}\ v_i = \operatorname{median}\!\bigl(|x_{ij}-\operatorname{median}(x_i)|\bigr) $$</div>
+                    <div class="formula">$$ \text{thresh} = \operatorname{quantile}(v,\ \text{var\_percent}/100), \qquad \text{keep } v_i > \text{thresh} $$</div>
+
+                    <h4>D. Low-abundance filter</h4>
+                    <div class="formula">$$ \text{score}_i = \operatorname{mean}(x_i) \text{ or } \operatorname{median}(x_i), \qquad \text{keep } \text{score}_i > \operatorname{quantile}(\text{score},\ \text{abun\_percent}/100) $$</div>
+                </section>
+
+                <section class="doc-section" id="normalization">
+                    <h2>Normalization</h2>
+                    <p>Libraries: <span class="pkg">scipy.stats</span>, <span class="pkg">sklearn.preprocessing.QuantileTransformer</span>, <span class="pkg">pycombat</span>.</p>
+
+                    <h4>1. Sample normalization (column-wise)</h4>
+                    <ul>
+                        <li><b>None</b> &mdash; no scaling.</li>
+                        <li><b>Median/Total</b> &mdash; each sample divided by its median or sum.</li>
+                    </ul>
+                    <div class="formula">$$ \hat{x}_{ij} = \frac{x_{ij}}{c_j}, \qquad c_j = \operatorname{median}(x_{\cdot j}) \text{ or } \sum_i x_{ij} $$</div>
+
+                    <h4>2. Data transformation</h4>
+                    <p><code>none</code>, <code>log2</code>, <code>log10</code>, <code>sqrt</code> applied element-wise. Zeros handled before transform (step 5).</p>
+
+                    <h4>3. Batch correction</h4>
+                    <p><b>None</b> or <b>ComBat</b> via <span class="pkg">pycombat</span> &mdash; empirical-Bayes adjustment of feature means/variances across batches defined by a metadata column.</p>
+
+                    <h4>4. Scaling (feature-wise)</h4>
+                    <div class="formula">$$ \text{mean-center:}\ \hat{x}_{ij} = x_{ij} - \mu_i \qquad \text{Pareto:}\ \hat{x}_{ij} = \frac{x_{ij}-\mu_i}{\sqrt{\sigma_i}} \qquad \text{auto (Z):}\ \hat{x}_{ij} = \frac{x_{ij}-\mu_i}{\sigma_i} \qquad \text{range:}\ \hat{x}_{ij} = \frac{x_{ij}-\min_i}{\max_i - \min_i} $$</div>
+                    <p><b>Quantile normalization</b> (optional) uses <span class="pkg">sklearn QuantileTransformer</span> to map feature distributions to a normal output.</p>
+
+                    <h4>5. Zero/missing handling</h4>
+                    <ul>
+                        <li><b>None</b> &mdash; leave as-is.</li>
+                        <li><b>1/5 minimum</b> &mdash; replace zeros with one-fifth of the feature minimum (left-censored approximation).</li>
+                        <li><b>QRILC</b> &mdash; Quantile Regression Imputation of Left-Censored data; zeros treated as left-censored values below the detection limit and imputed via quantile regression.</li>
+                    </ul>
+                </section>
+
+                <section class="doc-section" id="modules">
+                    <h2>Analysis modules</h2>
+                    <p>Summary of the analysis modules, their method/library and key output.</p>
+                    <table class="modtab">
+                        <thead>
+                            <tr><th>Module</th><th>Method/Library</th><th>Key output</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="module">PLS-DA/OPLS-DA/VIP</td>
+                                <td><span class="pkg">sklearn PLSRegression</span>, <span class="pkg">pyopls.OPLS</span>, <span class="pkg">scipy.stats</span></td>
+                                <td>S-plot: \(p_i=\text{cov}(x_i,t_{\text{pred}})\), \(p_{\text{corr}}=\rho(x_i,t_{\text{pred}})\) (Spearman/Pearson). VIP: \(\text{VIP}_j=\sqrt{p\cdot\frac{\sum_a w_{ja}^2\,\text{SSY}_a}{\sum_a\text{SSY}_a}}\). Permutation + CV-ANOVA validation. Combined table merges VIP with LogFC + FDR.</td>
+                            </tr>
+                            <tr>
+                                <td class="module">PCA/UMAP/t-SNE</td>
+                                <td><span class="pkg">sklearn.decomposition.PCA</span>, <span class="pkg">umap-learn</span>, <span class="pkg">sklearn.manifold.TSNE</span></td>
+                                <td>Scores, loadings, explained variance ratios. Group order follows the saved metadata ranking.</td>
+                            </tr>
+                            <tr>
+                                <td class="module">T-test &amp; ANOVA</td>
+                                <td><span class="pkg">scipy.stats</span> (ttest, mannwhitneyu, wilcoxon, shapiro, f_oneway, kruskal), <span class="pkg">statsmodels</span>, <span class="pkg">scikit_posthocs</span>, <span class="pkg">pingouin</span></td>
+                                <td>Auto mode picks Student/Welch or Mann-Whitney/Wilcoxon (T-test) and ANOVA or Kruskal-Wallis by normality and variance. FDR via Benjamini-Hochberg.</td>
+                            </tr>
+                            <tr>
+                                <td class="module">Biomarker</td>
+                                <td><span class="pkg">statsmodels.OLS</span>, <span class="pkg">scipy.stats</span> (pearsonr/spearmanr), <span class="pkg">sklearn.metrics</span> (roc_curve, auc), <span class="pkg">StratifiedKFold</span></td>
+                                <td>OLS regression \(\beta\), \(p\), FDR, \(R^2\); correlation; ROC AUC with bootstrap CI and Youden's \(J = \text{sensitivity} + \text{specificity} - 1\) cut-off.</td>
+                            </tr>
+                            <tr>
+                                <td class="module">Enrichment</td>
+                                <td><span class="pkg">gseapy</span> (GSEA/ORA), <span class="pkg">networkx</span></td>
+                                <td>GSEA: ES/NES/FDR on a ranked list. ORA: hypergeometric test. Dot plot (size = % Feature, color = \(-\log_{10}\text{FDR}\)) and gene-set network.</td>
+                            </tr>
+                            <tr>
+                                <td class="module">Clustering &amp; HCA</td>
+                                <td><span class="pkg">sklearn.cluster.KMeans</span>, <span class="pkg">minisom.MiniSom</span>, <span class="pkg">scipy.spatial.distance.pdist</span>, <span class="pkg">plotly.figure_factory</span></td>
+                                <td>K-means on PCA scores (labels saveable as metadata); SOM grid + BMU assignment; HCA dendrogram + clustered heatmap.</td>
+                            </tr>
+                            <tr>
+                                <td class="module">Classification</td>
+                                <td><span class="pkg">sklearn.ensemble.RandomForestClassifier</span>, <span class="pkg">sklearn.svm.SVC</span>, <span class="pkg">sklearn.inspection.permutation_importance</span></td>
+                                <td>Confusion matrix, precision/recall/F1, feature importance (RF) / permutation importance (SVM), ROC AUC via stratified CV.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="./src/js/header-loader.js"></script>
+    <script type="module">
+        import { auth, onAuthStateChanged, signOut } from "./src/js/firebase-config.js";
+
+        function renderAccountMenu(user) {
+            const menu = document.getElementById("author-menu-drd");
+            if (!menu) return;
+            if (user) {
+                menu.innerHTML = `
+                    <li class="px-3 py-2 small fw-bold text-primary border-bottom mb-1">${user.email}</li>
+                    <li><button id="doc-logout-btn" class="dropdown-item text-danger py-2">
+                        <i class="fa-solid fa-right-from-bracket me-2"></i> Sign Out
+                    </button></li>`;
+                const btn = document.getElementById("doc-logout-btn");
+                if (btn) btn.onclick = async () => { await signOut(auth); window.location.href = "./index.html"; };
+            } else {
+                menu.innerHTML = `
+                    <li><a class="dropdown-item py-2" href="./login.html"><i class="fa-solid fa-sign-in me-2"></i>Sign In</a></li>
+                    <li><a class="dropdown-item py-2" href="./register.html"><i class="fa-solid fa-user-plus me-2"></i>Sign Up</a></li>`;
+            }
+        }
+        const tryRender = () => {
+            if (document.getElementById("author-menu-drd")) {
+                onAuthStateChanged(auth, renderAccountMenu);
+            } else {
+                window.addEventListener("headerLoaded", () => onAuthStateChanged(auth, renderAccountMenu));
+            }
+        };
+        tryRender();
+
+        const links = document.querySelectorAll("#doc-toc .nav-link");
+        const sections = document.querySelectorAll(".doc-section");
+        function showSection(target) {
+            sections.forEach(s => s.classList.toggle("active", s.id === target));
+            links.forEach(a => a.classList.toggle("active", a.dataset.target === target));
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+        links.forEach(a => a.addEventListener("click", (e) => {
+            e.preventDefault();
+            showSection(a.dataset.target);
+        }));
+    </script>
+</body>
+</html>

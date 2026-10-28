@@ -1,0 +1,150 @@
+<style id="splitmeta-style">
+    .splitmeta-config-shell { display: flex; flex-direction: column; gap: 0.75rem; }
+    .splitmeta-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+    .splitmeta-toolbar-title { font-size: 0.74rem; font-weight: 800; color: #23384c; text-transform: uppercase; letter-spacing: 0.08em; }
+    .splitmeta-toolbar-actions { display: inline-flex; gap: 0.4rem; align-items: center; }
+    .splitmeta-group-editor-list { display: flex; flex-direction: column; gap: 0.65rem; }
+    .splitmeta-group-editor { border: 1px solid #dbe5ef; border-radius: 12px; background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%); padding: 0.75rem; transition: border-color 0.16s ease, box-shadow 0.16s ease; }
+    .splitmeta-group-editor.active { border-color: #0d6efd; box-shadow: 0 0 0 1px rgba(13, 110, 253, 0.14); }
+    .splitmeta-group-head { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 0.55rem; }
+    .splitmeta-group-pill { display: inline-flex; align-items: center; border-radius: 999px; padding: 0.18rem 0.5rem; font-size: 0.64rem; font-weight: 800; background: #edf3fb; color: #35506a; }
+    .splitmeta-group-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.4rem; margin-top: 0.55rem; }
+    .splitmeta-metric { border: 1px solid #e9eef3; border-radius: 10px; background: #fbfdff; padding: 0.45rem 0.55rem; }
+    .splitmeta-metric-label { font-size: 0.6rem; font-weight: 700; color: #738395; text-transform: uppercase; }
+    .splitmeta-metric-value { font-size: 0.82rem; font-weight: 800; color: #273142; }
+    .splitmeta-summary { border: 1px dashed #c8d6e5; border-radius: 10px; background: #fff; padding: 0.7rem; }
+    .splitmeta-summary-line { font-size: 0.72rem; color: #51606f; line-height: 1.45; }
+    .splitmeta-summary-line strong { color: #233445; }
+    .splitmeta-summary-line.error { color: #c0392b; font-weight: 700; }
+    .splitmeta-workspace { flex: 1 1 auto; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 0.85rem; }
+    .splitmeta-builder-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+    .splitmeta-builder-title { font-size: 0.98rem; font-weight: 800; color: #16324a; letter-spacing: 0.02em; }
+    .splitmeta-builder-subtitle { font-size: 0.72rem; color: #6b7c8f; }
+    .splitmeta-workspace-controls { flex: 0 0 auto; display: grid; grid-template-columns: 5fr 1fr 5fr 1fr 5fr; gap: 0.65rem; align-items: center; }
+    .splitmeta-control-slot { position: relative; }
+    .splitmeta-control-card { border: 1px solid #dbe5ef; border-radius: 9px; background: #fff; padding: 0.3rem; display: flex; flex-direction: column; gap: 0.3rem; min-height: 0; box-shadow: 0 10px 24px rgba(26, 43, 61, 0.05); }
+    .splitmeta-control-title { font-size: 0.73rem; font-weight: 800; color: #243648; text-transform: uppercase; letter-spacing: 0.08em; }
+    .splitmeta-line-slot { display: flex; align-items: center; justify-content: center; min-width: 0; }
+    .splitmeta-swap-floating { width: 2.2rem; height: 2.2rem; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 10px 22px rgba(17, 24, 39, 0.14); }
+    .splitmeta-workspace-body { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; border: 1px solid #e2eaf2; border-radius: 16px; background: linear-gradient(180deg, #fcfdff 0%, #f6f9fc 100%); padding: 0.75rem; box-sizing: border-box; }
+    .splitmeta-tree-scroll { position: relative; height: 100%; overflow-y: auto; overflow-x: hidden; padding: 0 0.15rem 1.25rem 0; box-sizing: border-box; }
+    .splitmeta-tree-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; overflow: visible; }
+    .splitmeta-tree-grid { position: relative; z-index: 1; display: grid; grid-template-columns: 5fr 1fr 5fr 1fr 5fr; gap: 0.65rem; min-height: 100%; align-items: start; }
+    .splitmeta-column { min-height: 0; display: flex; flex-direction: column; overflow: visible; }
+    .splitmeta-column-header { display: flex; justify-content: space-between; align-items: baseline; gap: 0.35rem; margin-bottom: 0.45rem; }
+    .splitmeta-column-title { font-size: 0.72rem; font-weight: 800; color: #26384a; }
+    .splitmeta-column-subtitle { font-size: 0.62rem; color: #728190; text-align: right; }
+    .splitmeta-column-scroll { position: relative; min-height: 0; overflow: visible; }
+    .splitmeta-level-stage { position: relative; width: 100%; min-height: 100%; padding-bottom: 1rem; box-sizing: border-box; }
+    .splitmeta-node-card { position: relative; min-height: 74px; border: 1px solid #dbe5ef; border-radius: 9px; background: #fff; padding: 0.38rem 0.42rem; box-shadow: 0 4px 10px rgba(31,45,61,0.05); transition: border-color 0.16s ease, background-color 0.16s ease, box-shadow 0.16s ease; }
+    .splitmeta-node-card.positioned { position: absolute; left: 0; right: 0; }
+    .splitmeta-node-card.clickable { cursor: pointer; }
+    .splitmeta-node-card.selected { box-shadow: 0 0 0 1px rgba(13,110,253,0.14), 0 6px 14px rgba(31,45,61,0.07); }
+    .splitmeta-node-card.has-conflict { border-color: #ef4444; background: rgba(254, 226, 226, 0.78); }
+    .splitmeta-node-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.35rem; margin-bottom: 0.24rem; }
+    .splitmeta-node-name { font-size: 0.66rem; font-weight: 800; color: #243648; margin-bottom: 0.08rem; line-height: 1.15; }
+    .splitmeta-node-parent { font-size: 0.56rem; color: #728190; line-height: 1.15; }
+    .splitmeta-node-bar { width: 100%; height: 4px; border-radius: 999px; background: #edf2f7; overflow: hidden; margin-bottom: 0.22rem; }
+    .splitmeta-node-bar > span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #5ba3ff 0%, #0d6efd 100%); }
+    .splitmeta-node-meta { font-size: 0.58rem; color: #617182; line-height: 1.15; }
+    .splitmeta-node-range { display: flex; align-items: center; gap: 0.25rem; margin-top: 0.3rem; }
+    .splitmeta-node-range-label { font-size: 0.54rem; color: #6b7280; font-weight: 700; min-width: 34px; }
+    .splitmeta-node-range-input { height: 1.45rem; padding: 0.1rem 0.22rem; font-size: 0.58rem; }
+    .splitmeta-node-range-sep { font-size: 0.54rem; color: #6b7280; }
+    .splitmeta-node-badge-row { display: flex; gap: 0.22rem; flex-wrap: wrap; margin-top: 0.24rem; }
+    .splitmeta-node-badge { display: inline-flex; align-items: center; border-radius: 999px; padding: 0.12rem 0.32rem; font-size: 0.5rem; font-weight: 800; letter-spacing: 0.02em; color: #17324a; }
+    .splitmeta-node-badge.conflict { background: #fee2e2; color: #b91c1c; }
+    .splitmeta-connector-path { fill: none; stroke: rgba(107, 124, 143, 0.36); stroke-width: 2; stroke-linecap: round; }
+    .splitmeta-line-column { min-height: 0; position: relative; }
+    .splitmeta-empty { min-height: 220px; display: flex; align-items: center; justify-content: center; text-align: center; color: #7b8896; font-size: 0.76rem; border: 1px dashed #dbe5ef; border-radius: 10px; background: #fff; padding: 0.9rem; }
+    @media (max-width: 992px) {
+        .splitmeta-workspace-controls, .splitmeta-tree-grid { grid-template-columns: 1fr; }
+        .splitmeta-line-slot, .splitmeta-line-column { display: none; }
+        .splitmeta-swap-floating { width: auto; height: auto; border-radius: 10px; }
+    }
+</style>
+
+<template id="splitmeta-config-template">
+    <div class="splitmeta-config-shell">
+        <div class="splitmeta-toolbar">
+            <div>
+                <div class="splitmeta-toolbar-title">Split Groups</div>
+                <div class="small text-muted" data-role="group-hint">Pick an active group, then click branches on the right tree.</div>
+            </div>
+            <div class="splitmeta-toolbar-actions">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-action="reset">Reset</button>
+                <button type="button" class="btn btn-outline-primary btn-sm" data-action="add-group">Add Group</button>
+            </div>
+        </div>
+        <div data-role="group-editor-list" class="splitmeta-group-editor-list"></div>
+        <div data-role="summary" class="splitmeta-summary"></div>
+    </div>
+</template>
+
+<template id="splitmeta-workspace-template">
+    <div class="splitmeta-workspace">
+        <div class="splitmeta-builder-header">
+            <div>
+                <div class="splitmeta-builder-title">Split Builder</div>
+                <div class="splitmeta-builder-subtitle" data-role="workspace-subtitle">Assign whole branches into reusable analysis groups.</div>
+            </div>
+            <div data-role="status" class="analysis-chip">Split mode preview</div>
+        </div>
+        <div class="splitmeta-workspace-controls">
+            <div class="splitmeta-control-slot">
+                <div class="splitmeta-control-card">
+                    <div class="splitmeta-control-title">Metadata L1</div>
+                    <select class="form-select form-select-sm" data-role="level-select" data-level-index="0"></select>
+                </div>
+            </div>
+            <div class="splitmeta-line-slot">
+                <button type="button" class="btn btn-outline-secondary btn-sm splitmeta-swap-floating" data-action="swap-levels" data-from="0" data-to="1" aria-label="Swap level 1 and level 2"><i class="fa-solid fa-right-left"></i></button>
+            </div>
+            <div class="splitmeta-control-slot">
+                <div class="splitmeta-control-card">
+                    <div class="splitmeta-control-title">Metadata L2</div>
+                    <select class="form-select form-select-sm" data-role="level-select" data-level-index="1"></select>
+                </div>
+            </div>
+            <div class="splitmeta-line-slot">
+                <button type="button" class="btn btn-outline-secondary btn-sm splitmeta-swap-floating" data-action="swap-levels" data-from="1" data-to="2" aria-label="Swap level 2 and level 3"><i class="fa-solid fa-right-left"></i></button>
+            </div>
+            <div class="splitmeta-control-slot">
+                <div class="splitmeta-control-card">
+                    <div class="splitmeta-control-title">Metadata L3</div>
+                    <select class="form-select form-select-sm" data-role="level-select" data-level-index="2"></select>
+                </div>
+            </div>
+        </div>
+        <div class="splitmeta-workspace-body">
+            <div data-role="tree-scroll" class="splitmeta-tree-scroll">
+                <svg data-role="tree-svg" class="splitmeta-tree-svg" aria-hidden="true"></svg>
+                <div class="splitmeta-tree-grid">
+                    <div class="splitmeta-column">
+                        <div class="splitmeta-column-header">
+                            <div class="splitmeta-column-title">LEVEL 1</div>
+                            <div data-role="column-subtitle" data-column-index="0" class="splitmeta-column-subtitle">No column</div>
+                        </div>
+                        <div data-role="column" data-column-index="0" class="splitmeta-column-scroll"></div>
+                    </div>
+                    <div class="splitmeta-line-column"></div>
+                    <div class="splitmeta-column">
+                        <div class="splitmeta-column-header">
+                            <div class="splitmeta-column-title">LEVEL 2</div>
+                            <div data-role="column-subtitle" data-column-index="1" class="splitmeta-column-subtitle">No column</div>
+                        </div>
+                        <div data-role="column" data-column-index="1" class="splitmeta-column-scroll"></div>
+                    </div>
+                    <div class="splitmeta-line-column"></div>
+                    <div class="splitmeta-column">
+                        <div class="splitmeta-column-header">
+                            <div class="splitmeta-column-title">LEVEL 3</div>
+                            <div data-role="column-subtitle" data-column-index="2" class="splitmeta-column-subtitle">No column</div>
+                        </div>
+                        <div data-role="column" data-column-index="2" class="splitmeta-column-scroll"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>

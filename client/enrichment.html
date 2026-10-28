@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enrichment Result - Analytic</title>
+    <link rel="icon" href="./src/img/logo1.png" type="image/png" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="./src/css/main.css" />
+    <style>
+        html, body { height: 100vh; width: 100%; overflow: hidden; background: #eef2f6; font-size: 0.85rem; }
+        body { opacity: 0; transition: opacity 0.35s; }
+        body.loaded { opacity: 1; }
+        .page-shell { height: 100vh; width: 100vw; display: flex; flex-direction: column; overflow: hidden; }
+        .page-body { flex: 1 1 auto; min-height: 0; min-width: 0; display: grid; grid-template-columns: minmax(292px, 2fr) minmax(0, 5fr); gap: 0.85rem; padding: 0.85rem; overflow: hidden; }
+        .left-panel { min-width: 0; display: flex; flex-direction: column; gap: 0.75rem; min-height: 0; }
+        .left-scroll { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 0.75rem; overflow: hidden; }
+        .right-panel { min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+        .card-shell { background: #fff; border-radius: 14px; box-shadow: 0 10px 30px rgba(31,45,61,0.08); border: 1px solid #e2e9f0; overflow: hidden; }
+        .sidebar-card { padding: 0.7rem 0.76rem; display: flex; flex-direction: column; gap: 0.6rem; overflow: visible; position: relative; z-index: 40; }
+        .meta-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; }
+        .meta-title { font-size: 0.92rem; font-weight: 800; color: #213042; line-height: 1.1; }
+        .meta-subtitle { font-size: 0.68rem; color: #6d7b8b; margin-top: 0.12rem; line-height: 1.25; max-width: 460px; }
+        .back-link { white-space: nowrap; padding: 0.28rem 0.55rem; line-height: 1.1; }
+        .toolbar-card { display: flex; flex-direction: column; gap: 0.55rem; padding-top: 0.62rem; border-top: 1px solid #e7edf3; }
+        .toolbar-row { display: flex; gap: 0.45rem; align-items: center; flex-wrap: wrap; }
+        .toolbar-row > * { min-width: 0; }
+        .compact-heading { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: #415569; margin-bottom: 0.1rem; }
+        .inline-filter-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .database-dropdown .dropdown-toggle {
+            width: auto;
+            min-width: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.68rem;
+            line-height: 1.1;
+            white-space: nowrap;
+            padding: 0.28rem 0.55rem;
+        }
+        .database-dropdown { position: relative; z-index: 1200; }
+        .database-dropdown .dropdown-menu {
+            width: min(320px, calc(100vw - 48px));
+            min-width: 220px;
+            max-height: 220px;
+            overflow-y: auto;
+            padding: 0.45rem 0.55rem;
+            border-radius: 10px;
+            border: 1px solid #dbe4ee;
+            box-shadow: 0 14px 28px rgba(31, 45, 61, 0.12);
+            z-index: 2000;
+        }
+        .database-dropdown .form-check { margin: 0 0 0.3rem; min-width: 0; }
+        .database-dropdown .form-check:last-child { margin-bottom: 0; }
+        .database-dropdown .form-check-label { font-size: 0.66rem; line-height: 1.18; word-break: break-word; }
+        .table-filter-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(118px, 0.42fr) minmax(0, 1fr); gap: 0.45rem; margin-bottom: 0.65rem; }
+        .table-card { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; padding: 0.78rem 0.82rem; }
+        .table-wrap { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; border: 1px solid #e7edf3; border-radius: 10px; }
+        .result-table { margin-bottom: 0; font-size: 0.72rem; width: 100%; table-layout: fixed; }
+        .result-table thead th { position: sticky; top: 0; z-index: 1; background: #1f2d3d; color: #fff; font-weight: 700; }
+        .result-table th, .result-table td { padding: 0.48rem 0.42rem; vertical-align: middle; }
+        .result-table tbody tr { cursor: pointer; }
+        .result-table tbody tr.active { background: #eef6ff; }
+        .result-table th:first-child, .result-table td:first-child { width: 6%; text-align: center; }
+        .result-table th:nth-child(2), .result-table td:nth-child(2) { width: 58%; }
+        .result-table th:nth-child(3), .result-table td:nth-child(3) { width: 12%; text-align: right; }
+        .result-table th:nth-child(4), .result-table td:nth-child(4) { width: 12%; text-align: right; }
+        .result-table th:nth-child(5), .result-table td:nth-child(5) { width: 12%; text-align: right; }
+        .term-name { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.22; word-break: break-word; }
+        .pagination-bar { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.75rem; }
+        .pagination-controls { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+        .pagination-controls .btn.active { background: #0d6efd; border-color: #0d6efd; color: #fff; }
+        .viz-card { flex: 1 1 auto; min-height: 0; padding: 0.9rem; display: flex; flex-direction: column; gap: 0.75rem; }
+        .viz-topbar { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+        .viz-title { font-size: 0.72rem; color: #5f6f81; font-weight: 700; }
+        .plot-host { flex: 1 1 auto; min-height: 0; border: 1px solid #e7edf3; border-radius: 12px; background: #fff; overflow: hidden; }
+        .plot-empty { height: 100%; display: flex; align-items: center; justify-content: center; color: #738395; }
+        .small-note { font-size: 0.72rem; color: #6d7b8b; }
+        .selection-tools { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+        .selection-summary { font-size: 0.68rem; color: #6d7b8b; }
+        .selection-warning { font-size: 0.68rem; color: #c1121f; font-weight: 700; min-height: 1rem; }
+        .table-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; margin-bottom: 0.7rem; }
+        .table-toolbar > * { min-width: 0; }
+        .term-head { display: inline-flex; align-items: center; gap: 0.42rem; }
+        .term-head .form-check-input { margin-top: 0; }
+        .plot-layout { display: grid; height: 100%; width: 100%; }
+        .plot-legend-pane {
+            border-left: 1px solid #eef2f6;
+            padding: 14px 6px 10px 10px;
+            display: flex;
+            align-items: flex-start;
+            justify-content: flex-start;
+            background: #fff;
+        }
+        .plot-legend-pane [data-role="legend-stack"] { padding-right: 0; }
+        @media (max-width: 1440px) {
+            .page-body { gap: 0.7rem; padding: 0.7rem; grid-template-columns: minmax(276px, 2fr) minmax(0, 5fr); }
+        }
+        @media (max-width: 1200px) {
+            .page-body { grid-template-columns: 1fr; }
+            .left-panel, .right-panel { min-width: 0; }
+            .left-scroll { overflow: visible; }
+            .meta-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 768px) {
+            .table-toolbar { flex-direction: column; align-items: stretch; }
+            .plot-legend-pane { padding-left: 8px; padding-right: 2px; }
+            .toolbar-row { flex-direction: column; align-items: stretch; }
+            .table-filter-row { grid-template-columns: 1fr; }
+            .result-table { font-size: 0.69rem; }
+        }
+    </style>
+    <script type="module" src="./src/js/auth-gate.js"></script>
+</head>
+<body>
+    <div id="header-placeholder"></div>
+    <div class="page-shell">
+        <div class="page-body">
+            <aside class="left-panel">
+                <section class="card-shell sidebar-card">
+                    <div class="meta-header">
+                        <div>
+                            <div id="meta-title-heading" class="meta-title">Enrichment - GSEA - -</div>
+                            <!-- <div class="meta-subtitle">Filter pathways by database and inspect term-level visualization from the DAL source.</div> -->
+                        </div>
+                        <!-- <a id="back-to-dal" class="btn btn-outline-secondary btn-sm fw-bold back-link" href="#">
+                            <i class="fa-solid fa-arrow-left me-2"></i>Back
+                        </a> -->
+                    </div>
+                    <div class="toolbar-card">
+                        <div class="toolbar-row align-items-start">
+                            <div class="inline-filter-head w-100">
+                                <div class="compact-heading">Database Filter</div>
+                                <div class="dropdown database-dropdown" data-bs-auto-close="outside">
+                                    <button id="database-button" class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        All databases
+                                    </button>
+                                    <div id="database-menu" class="dropdown-menu dropdown-menu-end"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <div class="left-scroll">
+                    <section class="card-shell table-card">
+                        <div class="table-toolbar">
+                            <div>
+                                <div class="fw-bold">Pathway Table</div>
+                                <div id="table-summary" class="small-note">0 terms</div>
+                            </div>
+                            <div class="selection-tools">
+                                <div id="selection-summary" class="selection-summary">0 selected</div>
+                                <a id="download-csv" class="btn btn-outline-primary btn-sm fw-bold" href="#" target="_blank" rel="noopener">
+                                    <i class="fa-solid fa-download me-2"></i>.CSV
+                                </a>
+                            </div>
+                        </div>
+                        <div id="selection-warning" class="selection-warning"></div>
+                        <div class="table-filter-row">
+                            <select id="sort-select" class="form-select form-select-sm">
+                                <optgroup id="sort-gsea-options" label="GSEA">
+                                    <option value="abs_nes_desc">|NES| ↓</option>
+                                    <option value="abs_nes_asc">|NES| ↑</option>
+                                    <option value="nes_desc">NES ↓</option>
+                                    <option value="nes_asc">NES ↑</option>
+                                    <option value="es_desc">ES ↓</option>
+                                    <option value="es_asc">ES ↑</option>
+                                </optgroup>
+                                <optgroup id="sort-ora-options" label="ORA" style="display:none;">
+                                    <option value="pval_asc">p-value ↑</option>
+                                    <option value="pval_desc">p-value ↓</option>
+                                    <option value="gene_count_desc">Feature count ↓</option>
+                                    <option value="gene_count_asc">Feature count ↑</option>
+                                </optgroup>
+                            </select>
+                            <div class="input-group input-group-sm">
+                                <span id="fdr-label" class="input-group-text fw-bold">FDR &lt;=</span>
+                                <input id="max-fdr" type="number" class="form-control form-control-sm extra-small" value="0.05" min="0" max="1" step="0.001">
+                            </div>
+                            <input id="term-search" class="form-control form-control-sm" placeholder="Search term name..." />
+                        </div>
+                        <div class="table-wrap">
+                            <table class="table table-hover result-table">
+                                <thead>
+                                    <tr>
+                                        <th></th>
+                                        <th>
+                                            <label class="term-head" for="select-all-terms">
+                                                <input id="select-all-terms" class="form-check-input" type="checkbox" />
+                                                <span>Term</span>
+                                            </label>
+                                        </th>
+                                        <th class="gsea-col">ES</th>
+                                        <th class="gsea-col">NES</th>
+                                        <th class="gsea-col">FDR</th>
+                                        <th class="ora-col" style="display:none;">p-value</th>
+                                        <th class="ora-col" style="display:none;">Genes</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="term-table-body"></tbody>
+                            </table>
+                        </div>
+                        <div class="pagination-bar">
+                            <div id="page-info" class="small-note">Page 1/1</div>
+                            <div id="pagination-controls" class="pagination-controls"></div>
+                        </div>
+                    </section>
+                </div>
+            </aside>
+
+            <section class="right-panel">
+                <div class="card-shell viz-card">
+                    <div class="viz-topbar">
+                        <div>
+                            <div class="fw-bold">Visualization</div>
+                            <div id="viz-title" class="viz-title">Title: -</div>
+                            <div id="viz-context" class="small-note">Select a term from the table to update the figure.</div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <select id="view-mode" class="form-select form-select-sm" style="max-width: 240px;">
+                                <option value="gsea" class="gsea-view-option">GSEA plot</option>
+                                <option value="dot" class="gsea-view-option">Dot plot</option>
+                                <option value="bar" class="ora-view-option" style="display:none;">Bar chart</option>
+                                <option value="network">Network visualization</option>
+                            </select>
+                            <div id="enrichment-config-anchor"></div>
+                        </div>
+                    </div>
+                    <div id="plot-host" class="plot-host"></div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+    <script type="module" src="./src/js/enrichment.js"></script>
+</body>
+</html>

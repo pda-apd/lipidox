@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Project - Lipid Analytic</title>
+
+    <link rel="shortcut icon" href="./src/img/logo1.png" type="image/x-icon">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="./src/css/main.css">
+
+    <style>
+        body { display: none; }
+
+        .upload-zone {
+            border: 2px dashed #ccc;
+            border-radius: 12px;
+            transition: all 0.3s;
+            cursor: pointer;
+            background: #fafafa;
+            position: relative;
+            min-height: 150px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .upload-zone:hover { border-color: #0d6efd; background: #f0f7ff; }
+        .upload-zone.file-selected { border-style: solid; border-color: #198754; background: #f0fff4; }
+
+        .step-number {
+            width: 26px;
+            height: 26px;
+            background: #0d6efd;
+            color: white;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 8px;
+            font-size: 0.8rem;
+        }
+        .code-hint { background: #e9ecef; padding: 2px 5px; border-radius: 4px; font-family: monospace; color: #d63384; }
+        .compact-card { border-radius: 16px; }
+        .compact-title { font-size: 1.5rem; }
+        .guideline-list { padding-left: 1rem; margin-bottom: 0; }
+        .guideline-list li { margin-bottom: 0.18rem; }
+
+        .file-info {
+            display: none;
+            margin-top: 10px;
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+        }
+        .upload-zone.file-selected .file-info { display: block; }
+        .upload-zone.file-selected .initial-msg { display: none; }
+        .file-name-display {
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            line-clamp: 2;
+            -webkit-line-clamp: 2;
+            overflow: hidden;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            line-height: 1.35;
+            max-width: 100%;
+        }
+
+        .project-grid {
+            display: grid;
+            grid-template-columns: minmax(260px, 1.1fr) minmax(320px, 1.3fr);
+            gap: 0.85rem;
+            align-items: start;
+        }
+        .upload-pair {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.85rem;
+        }
+        .portal-only.d-none,
+        .standard-only.d-none {
+            display: none !important;
+        }
+        .summary-card .card-body,
+        .upload-card .card-body {
+            padding: 1rem 1.1rem;
+        }
+        .upload-actions {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 0.65rem;
+            padding: 1rem 0 0.5rem;
+        }
+        .form-control,
+        .btn,
+        .alert,
+        .form-text,
+        .form-label,
+        .small {
+            font-size: 0.9rem;
+        }
+
+        /* ── Progress overlay popup ── */
+        .upload-progress-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.60);
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .upload-progress-overlay.d-none { display: none !important; }
+        .upload-progress-card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            padding: 2rem 2.5rem;
+            box-shadow: 0 8px 32px rgba(39, 57, 86, 0.16);
+            text-align: center;
+            min-width: 280px;
+            max-width: 400px;
+            width: 90%;
+        }
+        .upload-progress-card .progress { height: 8px; }
+        .upload-status-text {
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: #0d6efd;
+            overflow-wrap: anywhere;
+            margin-bottom: 0.85rem;
+        }
+
+        /* ── Error popup toast ── */
+        .upload-error-popup {
+            position: fixed;
+            bottom: 1.75rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9998;
+            width: min(500px, calc(100vw - 2rem));
+        }
+        .upload-error-popup.d-none { display: none !important; }
+        .upload-error-card {
+            background: #fff;
+            border: 1px solid #f5c2c7;
+            border-left: 4px solid #dc3545;
+            border-radius: 14px;
+            padding: 1rem 1.1rem;
+            box-shadow: 0 6px 24px rgba(220, 53, 69, 0.14);
+            display: flex;
+            align-items: flex-start;
+            gap: 0.85rem;
+        }
+        .upload-error-body { min-width: 0; flex: 1 1 0; }
+        .upload-error-title {
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: #dc3545;
+            overflow-wrap: anywhere;
+        }
+        .upload-error-details {
+            font-size: 0.72rem;
+            color: #6c757d;
+            margin-top: 0.3rem;
+            overflow-wrap: anywhere;
+        }
+
+        @media (max-width: 1200px) {
+            .project-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 768px) {
+            .compact-title { font-size: 1.3rem; }
+            .summary-card .card-body,
+            .upload-card .card-body { padding: 0.85rem; }
+            .upload-zone { min-height: 130px; }
+            .project-grid { grid-template-columns: 1fr; }
+            .upload-pair { gap: 0.6rem; }
+            .upload-actions { flex-direction: column; }
+            .upload-actions .btn { width: 100%; }
+            .upload-progress-card { padding: 1.5rem 1.25rem; }
+        }
+
+    </style>
+
+    <script type="module" src="./src/js/auth-gate.js"></script>
+</head>
+<body class="bg-light">
+
+    <div id="header-placeholder"></div>
+
+    <div class="container py-4">
+        <div class="row justify-content-center">
+            <div class="col-xl-10 px-0">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2 class="fw-bold mb-0">New Submission</h2>
+                    <a href="./projectID.html" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                        <i class="fa-solid fa-arrow-left me-1"></i> Back to Dashboard
+                    </a>
+                </div>
+
+                <form id="upload-form" novalidate>
+                    <div class="project-grid mb-3">
+                        <div class="card border-0 shadow-sm compact-card summary-card">
+                            <div class="card-body d-flex flex-column gap-3">
+                                <div>
+                                    <h5 class="fw-bold mb-1 compact-title">Upload Dataset</h5>
+                                    <p class="text-muted small mb-0">Everything you need is arranged in one compact view.</p>
+                                </div>
+                                <div>
+                                    <label class="form-label fw-bold small text-uppercase mb-1"><span class="step-number">1</span>Project Name</label>
+                                    <input type="text" id="project-name" class="form-control"
+                                           placeholder="e.g. lipid_study_01"
+                                           pattern="[a-z0-9_]+" required>
+                                    <div class="form-text extra-small text-muted mt-1">
+                                        <i class="fa-solid fa-circle-exclamation me-1"></i>
+                                        Use lowercase letters, numbers, and underscores only.
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="form-label fw-bold small text-uppercase mb-1"><span class="step-number">2</span>Upload Mode</label>
+                                    <select id="upload-mode" class="form-select">
+                                        <option value="preprocess_portal" selected>Data Preprocessing Portal</option>
+                                        <option value="standard_upload">Standard Upload</option>
+                                    </select>
+                                </div>
+                                <div class="alert alert-secondary border-0 rounded-3 mb-0 py-3 px-3 text-muted small">
+                                    <ul class="guideline-list">
+                                        <li><strong>Matrix:</strong> intensity table with <span class="code-hint">Rows = Features</span> and <span class="code-hint">Columns = Samples</span>.</li>
+                                        <li class="portal-only"><strong>NIST:</strong> exactly 2 columns: <span class="code-hint">sample_id</span> and <span class="code-hint">paired_nist</span>. Both names must exist in the raw matrix columns and metadata rows.</li>
+                                        <li class="portal-only"><strong>IS:</strong> exactly 2 columns: <span class="code-hint">compound_name</span> and <span class="code-hint">ISTD</span>. Both names must exist in the raw matrix index.</li>
+                                        <li><strong>Metadata:</strong> annotation table with <span class="code-hint">Rows = Samples</span> and <span class="code-hint">Columns = Groups</span>.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="upload-pair">
+                            <div class="card border-0 shadow-sm compact-card upload-card">
+                                <div class="card-body d-flex flex-column">
+                                    <label id="matrix-label" class="form-label fw-bold small text-uppercase mb-2">Raw Matrix File (.csv)</label>
+                                    <div class="upload-zone p-3 text-center flex-grow-1" id="matrix-zone">
+                                        <div class="initial-msg">
+                                            <i class="fa-solid fa-table-list fa-2x text-primary mb-2"></i>
+                                            <p id="matrix-prompt" class="small mb-0 text-muted">Choose Raw Matrix File</p>
+                                        </div>
+                                        <div class="file-info text-success">
+                                            <i class="fa-solid fa-file-circle-check fa-2x mb-2"></i>
+                                            <p class="small fw-bold mb-0 px-2 file-name-display" id="matrix-name-display">filename.csv</p>
+                                        </div>
+                                        <input type="file" id="matrix-file" hidden accept=".csv">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card border-0 shadow-sm compact-card upload-card portal-only">
+                                <div class="card-body d-flex flex-column">
+                                    <label class="form-label fw-bold small text-uppercase mb-2">NIST File (.csv)</label>
+                                    <div class="upload-zone p-3 text-center flex-grow-1" id="nist-zone">
+                                        <div class="initial-msg">
+                                            <i class="fa-solid fa-flask-vial fa-2x text-warning mb-2"></i>
+                                            <p class="small mb-0 text-muted">Choose NIST Mapping File</p>
+                                        </div>
+                                        <div class="file-info text-success">
+                                            <i class="fa-solid fa-file-circle-check fa-2x mb-2"></i>
+                                            <p class="small fw-bold mb-0 px-2 file-name-display" id="nist-name-display">filename.csv</p>
+                                        </div>
+                                        <input type="file" id="nist-file" hidden accept=".csv">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card border-0 shadow-sm compact-card upload-card portal-only">
+                                <div class="card-body d-flex flex-column">
+                                    <label class="form-label fw-bold small text-uppercase mb-2">IS File (.csv)</label>
+                                    <div class="upload-zone p-3 text-center flex-grow-1" id="is-zone">
+                                        <div class="initial-msg">
+                                            <i class="fa-solid fa-vials fa-2x text-info mb-2"></i>
+                                            <p class="small mb-0 text-muted">Choose IS Mapping File</p>
+                                        </div>
+                                        <div class="file-info text-success">
+                                            <i class="fa-solid fa-file-circle-check fa-2x mb-2"></i>
+                                            <p class="small fw-bold mb-0 px-2 file-name-display" id="is-name-display">filename.csv</p>
+                                        </div>
+                                        <input type="file" id="is-file" hidden accept=".csv">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card border-0 shadow-sm compact-card upload-card">
+                                <div class="card-body d-flex flex-column">
+                                    <label class="form-label fw-bold small text-uppercase mb-2">Metadata File (.csv)</label>
+                                    <div class="upload-zone p-3 text-center flex-grow-1" id="meta-zone">
+                                        <div class="initial-msg">
+                                            <i class="fa-solid fa-id-card-clip fa-2x text-success mb-2"></i>
+                                            <p class="small mb-0 text-muted">Choose Metadata File</p>
+                                        </div>
+                                        <div class="file-info text-success">
+                                            <i class="fa-solid fa-file-circle-check fa-2x mb-2"></i>
+                                            <p class="small fw-bold mb-0 px-2 file-name-display" id="meta-name-display">filename.csv</p>
+                                        </div>
+                                        <input type="file" id="meta-file" hidden accept=".csv">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="upload-actions">
+                        <button type="button" id="btn-clear" class="btn btn-light px-4">Clear All</button>
+                        <button type="submit" id="btn-process" class="btn btn-primary px-5 py-2 fw-bold shadow">
+                            <i class="fa-solid fa-cloud-arrow-up me-2"></i>Upload & Process
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress overlay popup -->
+    <div id="progress-container" class="upload-progress-overlay d-none" role="status" aria-live="polite">
+        <div class="upload-progress-card">
+            <div class="spinner-border text-primary mb-3" style="width:2.4rem;height:2.4rem;" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="upload-status-text" id="status-text">Preparing...</p>
+            <div class="progress">
+                <div id="upload-progress" class="progress-bar progress-bar-striped progress-bar-animated"
+                     role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error toast popup -->
+    <div id="vps-error-container" class="upload-error-popup d-none" role="alert" aria-live="assertive">
+        <div class="upload-error-card">
+            <div class="upload-error-body">
+                <div class="upload-error-title">
+                    <i class="fa-solid fa-circle-xmark me-2"></i><span id="error-message">Error message</span>
+                </div>
+                <div id="error-details" class="upload-error-details"></div>
+            </div>
+            <button type="button" id="btn-dismiss-error" class="btn btn-sm btn-outline-danger flex-shrink-0" aria-label="Close error">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+    </div>
+
+    <div id="shared-terminal-host"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="./src/js/header-loader.js"></script>
+    <script type="module" src="./src/js/upload.js"></script>
+</body>
+</html>

@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>K-Means Clustering - Lipid Analytic</title>
+    <link rel="icon" href="./src/img/logo1.png" type="image/png" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="./src/css/main.css" />
+    <script type="module" src="./src/js/auth-gate.js"></script>
+    <style>
+        .config-panel { flex: 0 0 350px; width: 350px; display: flex; flex-direction: column; overflow: hidden; }
+        .results-panel { flex: 1 1 0; min-width: 0; overflow: hidden; }
+    </style>
+</head>
+<body class="analysis-page">
+    <div class="main-wrapper">
+        <div id="sidebar-placeholder"></div>
+        <main class="content-area">
+            <!-- ===== LEFT CONFIG PANEL ===== -->
+            <section class="config-panel">
+                <div class="setup-card">
+                    <h6 class="fw-bold mb-2" style="color:#6f42c1"><i class="fa-solid fa-object-group me-2"></i>K-Means Clustering</h6>
+
+                    <!-- History -->
+                    <div class="history-anchor mb-2">
+                        <button id="historyToggle" type="button" class="btn btn-outline-secondary btn-sm w-100">
+                            <i class="fa-solid fa-clock-rotate-left me-1"></i> History
+                        </button>
+                        <div id="historyPopup" class="history-popup"></div>
+                    </div>
+
+                    <div class="card-scroll">
+                        <!-- User config collapsible -->
+                        <div class="mb-2">
+                            <button class="section-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#kmeansConfigBody" aria-expanded="true" aria-controls="kmeansConfigBody">
+                                <span>User Config</span>
+                                <i class="fa-solid fa-chevron-down"></i>
+                            </button>
+                            <div class="collapse show" id="kmeansConfigBody">
+                                <div class="section-body">
+
+                                    <!-- Analysis Name -->
+                                    <div class="mb-2">
+                                        <label for="kmeansNameInput" class="small-heading">Analysis Name</label>
+                                        <input id="kmeansNameInput" type="text" class="form-control form-control-sm" placeholder="e.g. kmeans_AD_k3">
+                                        <div id="kmeansNamePreview" class="name-preview mt-1"></div>
+                                    </div>
+
+                                    <!-- Input Source -->
+                                    <div class="mb-2">
+                                        <label for="kmeansInputSelect" class="small-heading">Input Source</label>
+                                        <select id="kmeansInputSelect" class="form-select form-select-sm">
+                                            <option value="" selected>--Select--</option>
+                                        </select>
+                                    </div>
+
+                                    <!-- Number of Clusters -->
+                                    <div class="mb-2">
+                                        <label for="nClustersInput" class="small-heading">Number of Clusters (k)</label>
+                                        <input id="nClustersInput" type="number" class="form-control form-control-sm" value="3" min="2" max="50">
+                                    </div>
+
+                                    <!-- Group/Sort By Metadata -->
+                                    <div class="mb-2">
+                                        <label for="kmeansMetaColSelect" class="small-heading">Group / Sort By Metadata</label>
+                                        <select id="kmeansMetaColSelect" class="form-select form-select-sm">
+                                            <option value="">-- No metadata --</option>
+                                        </select>
+                                    </div>
+
+                                    <!-- Label list -->
+                                    <div class="mb-2">
+                                        <div class="small-heading mb-1">Labels <span class="text-muted fw-normal">(select samples to cluster)</span></div>
+                                        <div id="kmeansLabelList" class="legend-list" style="max-height:140px;"></div>
+                                    </div>
+
+                                    <!-- Run button -->
+                                    <!-- Run New PCA Checkbox -->
+                                    <div class="mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="krunNewPcaCheckbox">
+                                            <label class="form-check-label" for="krunNewPcaCheckbox">Run New PCA (subset only)</label>
+                                        </div>
+                                    </div>
+                                    <button id="runKmeansBtn" class="btn btn-sm w-100 fw-bold" style="background:#6f42c1;color:#fff;">
+                                        <i class="fa-solid fa-play me-1"></i> Run K-Means
+                                    </button>
+                                    <div id="kmeansStatus" class="status-line mt-1"></div>
+
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Result panel (shown after run) -->
+                        <div id="clusterResultPanel" style="display:none; margin-top:0.5rem; padding-top:0.5rem; border-top:1px solid #edf1f5;">
+
+                            <!-- Color By -->
+                            <div class="mb-2">
+                                <div class="d-flex align-items-center justify-content-between mb-1 gap-1">
+                                    <label for="colorBySelect" class="small-heading mb-0">Color By Metadata</label>
+                                    <div class="d-flex align-items-center gap-1">
+                                        <button id="btnMetadataManager" type="button" class="btn btn-outline-secondary btn-sm py-0 px-2">⚙️</button>
+                                    </div>
+                                </div>
+                                <select id="colorBySelect" class="form-select form-select-sm">
+                                    <option value="__kmeans_cluster__">K-Means Cluster</option>
+                                </select>
+                            </div>
+
+                            <!-- Show Ellipse -->
+                            <div class="mb-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="ellipseToggle">
+                                    <label class="form-check-label" for="ellipseToggle">Show Ellipse (95%)</label>
+                                </div>
+                            </div>
+
+                            <!-- Legend + Interaction -->
+                            <div class="mb-2">
+                                <div class="d-flex align-items-center justify-content-between mb-1">
+                                    <div class="small-heading mb-0">Legend + Interaction</div>
+                                    <button id="btnAppendMetadata" type="button" class="btn btn-outline-primary btn-sm py-0 px-2" disabled>Append to</button>
+                                </div>
+                                <div id="legendList" class="legend-list"></div>
+                            </div>
+
+                            <!-- Color Palette -->
+                            <div class="mb-2">
+                                <label for="paletteSelect" class="small-heading">Color Palette</label>
+                                <select id="paletteSelect" class="form-select form-select-sm">
+                                    <option value="tableau">Tableau 10</option>
+                                    <option value="set2">Set 2</option>
+                                    <option value="dark2">Dark 2</option>
+                                    <option value="vivid" selected>Vivid Bright</option>
+                                    <option value="neon">Neon Contrast</option>
+                                </select>
+                            </div>
+
+                            <!-- Variance info -->
+                            <div id="pcVarianceInfo" class="mb-2" style="font-size:0.69rem;color:#6c757d;"></div>
+
+                            <div class="mb-2">
+                                <button class="save-meta-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#saveMetaPanel" aria-expanded="false" aria-controls="saveMetaPanel">
+                                    <span>Save to metadata?</span>
+                                    <i class="fa-solid fa-chevron-down"></i>
+                                </button>
+                                <div class="collapse" id="saveMetaPanel">
+                                    <div class="save-meta-body">
+                                        <div class="mb-2">
+                                            <div class="small-heading mb-1">Rename Clusters</div>
+                                            <div class="mb-1">
+                                                <input id="clusterColName" type="text" class="form-control form-control-sm" placeholder="e.g. kmeans_condition">
+                                            </div>
+                                            <div id="clusterRenameList"></div>
+                                        </div>
+
+                                        <button id="saveToMetaBtn" class="btn btn-success btn-sm w-100 fw-bold">
+                                            <i class="fa-solid fa-floppy-disk me-1"></i> Save to Metadata
+                                        </button>
+                                        <div id="saveStatus" class="status-line mt-1"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="feature-side-controls">
+                                <!-- <div class="small-heading mb-1">Feature-In</div> -->
+                                <div class="feature-control-row">
+                                    <div class="feature-search-popup">
+                                        <label for="featureSearchInput" class="small-heading mb-1">Search Feature</label>
+                                        <input id="featureSearchInput" type="text" class="form-control form-control-sm" placeholder="Type feature name...">
+                                        <div id="featureSearchResults" class="feature-search-results"></div>
+                                    </div>
+                                    <div>
+                                        <label for="featureScaleMode" class="small-heading mb-1">View</label>
+                                        <select id="featureScaleMode" class="form-select form-select-sm">
+                                            <option value="normalize" selected>Normalize</option>
+                                            <option value="raw">Raw</option>
+                                            <option value="row_zscore">Row Z-score</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="feature-selected-header">
+                                    <div class="small-heading mb-0">Features</div>
+                                    <button id="featureClearAllBtn" type="button" class="btn btn-outline-secondary btn-sm py-0 px-2">Clear all</button>
+                                </div>
+                                <div id="featureSelectedList" class="feature-selected-list">
+                                    <div class="feature-selected-empty">No saved features.</div>
+                                <!-- </div>
+                                <div id="featureSearchStatus" class="feature-search-status">Load a K-Means run to enable feature search.</div>
+                                <div id="featureCurrentSummary" class="feature-current mt-2">No feature selected.</div> -->
+                            </div>
+
+                            <div id="featurePanel" class="feature-panel">
+                                <div>
+                                    <div class="feature-panel-title">Expression Distribution</div>
+                                    <!-- <div class="feature-panel-note">One combined half-violin plus one combined boxplot for the selected feature.</div> -->
+                                </div>
+                                <div class="feature-distribution">
+                                    <div id="featureDistributionPlot"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===== RIGHT RESULTS PANEL ===== -->
+            <section class="results-panel">
+                <div class="viz-shell">
+                    <div id="vizEmpty" class="viz-empty">
+                        <div>
+                            <i class="fa-solid fa-object-group fa-2x mb-2" style="color:#c4a0f0"></i><br>
+                            Run K-Means or load a saved run from history to display the clustering result.
+                        </div>
+                    </div>
+                    <div id="vizContent" class="viz-content" style="position:relative">
+                        <div id="plot-config-anchor" style="position:absolute;top:8px;right:8px;z-index:100;"></div>
+                        <div class="plot-panel">
+                            <div id="plotWrap"></div>
+                            <div id="featureOverlayLegend" class="feature-overlay-legend"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+    <script type="module" src="./src/js/kmeans.js"></script>
+</body>
+</html>
+

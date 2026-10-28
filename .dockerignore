@@ -1,0 +1,29 @@
+# Build artefacts & local state
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Local runtime data (HF uses its own /data volume)
+backend/storage/
+backend/backups/
+backend/.env
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Cache / OS
+.DS_Store
+Thumbs.db
+*.log
+
+# Docs / manuscripts not needed for the running app
+*.docx
+*.pdf
+
+# Git
+.git/
+.gitignore

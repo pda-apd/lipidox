@@ -1,0 +1,36 @@
+# LipidoX — runtime dependencies (SQLite)
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+python-multipart
+python-jose[cryptography]
+bcrypt
+sqlalchemy
+
+numpy
+pandas
+scipy
+statsmodels
+scikit-learn
+scikit-posthocs
+pingouin
+
+matplotlib
+seaborn
+plotly
+networkx
+
+gseapy
+mygene
+GEOparse
+requests
+
+umap-learn
+minisom
+pyopls
+pycombat
+
+# Lipid ID conversion (offline annotations + Goslin parser port)
+pygoslin
+pyarrow

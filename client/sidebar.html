@@ -1,0 +1,210 @@
+<aside class="analysis-sidebar-shell">
+    <div class="analysis-sidebar-rail">
+        <button type="button" class="analysis-sidebar-gear" aria-label="Open analysis sidebar">
+            <i class="fa-solid fa-gear"></i>
+        </button>
+    </div>
+    <div class="analysis-sidebar-panel">
+        <a href="projectID.html" class="btn btn-outline-secondary border-0 btn-sm w-100 mb-2 fw-semibold" id="btn-back-projects" style="font-size: 0.72rem;">
+            <i class="fa-solid fa-arrow-left-long me-2"></i>Exit Project
+        </a>
+
+        <hr class="my-2 opacity-10">
+        
+        <ul class="nav nav-pills flex-column mb-auto" id="analysis-nav">
+        <li class="nav-item mb-2">
+            <a href="ana.html" class="nav-link active py-1 px-2 fw-semibold" style="font-size: 0.8rem; background-color: var(--sci-accent-soft); color: var(--sci-accent); border: 1px solid #dbeafe;">
+                <i class="fa-solid fa-table-cells-large me-2"></i>Dashboard
+            </a>
+        </li>
+        
+        <div class="mt-3 mb-1 px-2 fw-bold text-danger text-uppercase sidebar-section-label">Biomarker Discovery</div>
+        <li class="nav-item">
+            <a href="biomarker.html" class="nav-link link-dark py-1 px-2 rounded hover-sidebar" style="font-size: 0.8rem;">
+                <i class="fa-solid fa-microscope me-2 text-danger" style="width: 15px;"></i>Discovery
+            </a>
+        </li>
+        
+        <div class="mt-3 mb-1 px-2 fw-bold text-primary text-uppercase sidebar-section-label">Univariate</div>
+        <li class="nav-item"><a href="t-test.html" class="nav-link link-dark py-1 px-2" style="font-size: 0.8rem;"><i class="fa-solid fa-chart-simple me-2 text-primary" style="width: 15px;"></i>DEA (T-test/MW)</a></li>
+        <li class="nav-item"><a href="anova.html" class="nav-link link-dark py-1 px-2" style="font-size: 0.8rem;"><i class="fa-solid fa-table-list me-2 text-primary" style="width: 15px;"></i>ANOVA/KW</a></li>
+        <!-- <li class="nav-item"><a href="heatmapexpression.html" class="nav-link link-dark py-1 px-2" style="font-size: 0.8rem;"><i class="fa-solid fa-mountain-sun me-2 text-primary" style="width: 15px;"></i>HE</a></li> -->
+        
+        <div class="mt-3 mb-1 px-2 fw-bold text-success text-uppercase sidebar-section-label">Multivariate</div>
+        <li class="nav-item"><a href="pca.html" class="nav-link link-dark py-1 px-2" style="font-size: 0.8rem;"><i class="fa-solid fa-cube me-2 text-success" style="width: 15px;"></i>PCA</a></li>
+        <li class="nav-item"><a href="plsda.html" class="nav-link link-dark py-1 px-2" style="font-size: 0.8rem;"><i class="fa-solid fa-layer-group me-2 text-success" style="width: 15px;"></i>PLS-DA</a></li>
+        <li class="nav-item"><a href="oplsda.html" class="nav-link link-dark py-1 px-2" style="font-size: 0.8rem;"><i class="fa-solid fa-clone me-2 text-success" style="width: 15px;"></i>OPLS-DA</a></li>
+        <li class="nav-item"><a href="vip-score.html" class="nav-link link-dark py-1 px-2" style="font-size: 0.8rem;"><i class="fa-solid fa-ranking-star me-2 text-success" style="width: 15px;"></i>VIP Score</a></li>
+        
+        <div class="mt-3 mb-1 px-2 fw-bold text-warning text-uppercase sidebar-section-label">Clustering</div>
+        <li class="nav-item"><a href="heatmap.html" class="nav-link link-dark py-1 px-2" style="font-size: 0.8rem;"><i class="fa-solid fa-diagram-project me-2 text-warning" style="width: 15px;"></i>Heatmap & HCA</a></li>
+        <li class="nav-item"><a href="kmeans.html" class="nav-link link-dark py-1 px-2" style="font-size: 0.8rem;"><i class="fa-solid fa-circle-nodes me-2 text-warning" style="width: 15px;"></i>K-means</a></li>
+        <li class="nav-item"><a href="som.html" class="nav-link link-dark py-1 px-2" style="font-size: 0.8rem;"><i class="fa-solid fa-circle-nodes me-2 text-warning" style="width: 15px;"></i>SOM</a></li>
+        
+        <!-- <div class="mt-3 mb-1 px-2 fw-bold text-dark uppercase" style="font-size: 0.42rem; letter-spacing: 0.5px; opacity: 0.7;">CLASSIFICATION</div> -->
+        <li class="nav-item"><a href="classification.html" class="nav-link link-dark py-1 px-2" style="font-size: 0.8rem;"><i class="fa-solid fa-tree me-2 text-secondary" style="width: 15px;"></i>Classification</a></li>
+        <!-- <li class="nav-item"><a href="svm.html" class="nav-link link-dark py-1 px-2" style="font-size: 0.8rem;"><i class="fa-solid fa-braille me-2 text-secondary" style="width: 15px;"></i>SVM</a></li> -->
+        
+        <hr class="my-3 opacity-10">
+            <li>
+                <div class="mt-2 d-grid gap-2">
+                    <a href="#" id="analysis-download-matrix" class="nav-link py-2 px-2 fw-semibold border rounded bg-light" style="font-size: 0.72rem;">
+                        <i class="fa-solid fa-file-arrow-down me-2"></i>Download Matrix
+                    </a>
+                    <a href="#" id="analysis-download-meta" class="nav-link py-2 px-2 fw-semibold border rounded bg-light" style="font-size: 0.72rem;">
+                        <i class="fa-solid fa-file-arrow-down me-2"></i>Download Metadata
+                    </a>
+                </div>
+            </li>
+            <li>
+                <div id="normSummaryCard" class="norm-summary missing mt-2">
+                    <div class="norm-summary-title">Normalize Summary</div>
+                    <div id="normSummaryBody" class="norm-summary-line">No normalization info found.</div>
+                </div>
+                <div id="normalityStatCard" class="norm-summary missing mt-2">
+                    <div class="norm-summary-title">Data Normality</div>
+                    <div id="normalityStatBody" class="norm-summary-line">Run normalization to view.</div>
+                </div>
+            </li>
+        </ul>
+
+        <div class="analysis-sidebar-tools">
+            <div class="analysis-sidebar-tools-title">Settings</div>
+            <div id="sidebar-terminal-slot"></div>
+        </div>
+    </div>
+</aside>
+
+<style>
+    .norm-summary {
+        border: 1px solid #e5ebf1;
+        border-radius: 8px;
+        background: #f8fbff;
+        padding: 0.55rem 0.6rem;
+    }
+    .norm-summary.ready {
+        background: #eef7f0;
+        border-color: #b9dfc4;
+    }
+    .norm-summary.missing {
+        background: #fff8ef;
+        border-color: #ffd9ab;
+    }
+    .norm-summary-title {
+        font-size: 0.58rem;
+        text-transform: uppercase;
+        letter-spacing: 0.35px;
+        font-weight: 700;
+        margin-bottom: 0.35rem;
+        color: #3b4b5c;
+    }
+    .norm-summary-line {
+        font-size: 0.49rem;
+        color: #526172;
+        line-height: 1.35;
+        margin-bottom: 0.15rem;
+    }
+    .norm-summary-line:last-child { margin-bottom: 0; }
+    .analysis-sidebar-shell {
+        position: relative;
+        flex: 0 0 56px;
+        width: 56px;
+        min-height: 100vh;
+        background: rgba(255, 255, 255, 0.96);
+        border-right: 1px solid #d9e2ea;
+        box-shadow: 6px 0 18px rgba(17, 31, 46, 0.06);
+        overflow: visible;
+        z-index: 1200;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    /* The panel pops out as a fixed overlay on hover/focus so it never pushes
+       or reshapes the main content layout. */
+    .analysis-sidebar-panel {
+        position: fixed;
+        top: 0;
+        left: 56px;
+        height: 100vh;
+        width: 220px;
+        background: rgba(255, 255, 255, 0.98);
+        border-right: 1px solid #d9e2ea;
+        box-shadow: 8px 0 22px rgba(17, 31, 46, 0.12);
+        padding: 0.85rem 0.8rem;
+        display: flex;
+        flex-direction: column;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition: opacity 0.18s ease, visibility 0.18s ease;
+        z-index: 1300;
+    }
+    .analysis-sidebar-shell:hover .analysis-sidebar-panel,
+    .analysis-sidebar-shell:focus-within .analysis-sidebar-panel {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+    }
+    .analysis-sidebar-rail {
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 56px;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding-top: 0.85rem;
+        background: linear-gradient(180deg, #f7fafc 0%, #eef4fa 100%);
+        border-right: 1px solid #d9e2ea;
+    }
+    .analysis-sidebar-gear {
+        width: 36px;
+        height: 36px;
+        border-radius: 12px;
+        border: 1px solid #d5e1ec;
+        background: #fff;
+        color: #274055;
+        box-shadow: 0 8px 18px rgba(17, 31, 46, 0.08);
+    }
+    .analysis-sidebar-tools {
+        margin-top: 0.85rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid #e3ebf2;
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+    }
+    .analysis-sidebar-tools-title {
+        font-size: 0.53rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #6a7d91;
+    }
+    .sidebar-section-label {
+        font-size: 0.6rem;
+        letter-spacing: 0.06em;
+        opacity: 0.85;
+    }
+    .nav-link.link-dark:hover {
+        background-color: #f0f4f8 !important;
+        color: #0d6efd !important;
+    }
+    #analysis-nav .nav-link {
+        transition: all 0.2s ease;
+    }
+    #analysis-nav .nav-link.active {
+        background-color: #f8f9fa !important;
+        color: #333 !important;
+        border: 1px solid #000 !important;
+    }
+    .hover-sidebar:hover i {
+        transform: scale(1.1);
+    }
+</style>
+<script>
+(function () {
+    if (typeof window.renderNormSummary !== "function") {
+        var s = document.createElement("script");
+        s.src = "src/js/sidebar-normality.js";
+        document.head.appendChild(s);
+    }
+})();
+</script>
