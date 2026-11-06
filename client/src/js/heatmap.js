@@ -888,7 +888,7 @@ function buildLocalSrcdoc(payload, title) {
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<script src="./src/js/vendor/plotly-2.35.2.min.js"></script>
 <style>html,body,#plot{margin:0;width:100%;height:100%;overflow:hidden;background:#fff;}g.annotation text{font-weight:bold!important;}</style>
 </head>
 <body>

@@ -203,6 +203,17 @@ function showVizLoading(message = "Loading...") {
     `;
 }
 
+// A failed PCA/UMAP/t-SNE run must never leave the loading spinner on screen.
+function restoreRunUi() {
+    const run = getCurrentRun();
+    if (run?.data?.plot_points) {
+        renderPlot({ preserveRanges: false });
+        return;
+    }
+    dom.plotWrap.innerHTML = "";
+    toggleViz(false);
+}
+
 function getSelectedPcaRun() {
     const selectedId = dom.pcaSourceSelect.value;
     if (selectedId) {
@@ -724,9 +735,13 @@ async function runPca() {
                 }
             }
             setStatus(dom.pcaStatus, error.message || String(error), true);
+            restoreRunUi();
         });
     } catch (error) {
         setStatus(dom.pcaStatus, error.message || String(error), true);
+        dom.runPcaBtn.disabled = false;
+        dom.runPcaBtn.innerHTML = '<i class="fa-solid fa-play me-2"></i>RUN PCA';
+        restoreRunUi();
     }
 }
 
@@ -758,7 +773,8 @@ async function runEmbedding() {
         return;
     }
 
-    await ensureRunData(pcaRun);
+    const loaded = await ensureRunData(pcaRun);
+    if (!loaded) return;
     if (!pcaRun.data?.embedding) {
         setStatus(dom.embeddingStatus, "PCA embedding data not available. Re-run PCA first.", true);
         return;
@@ -847,9 +863,13 @@ async function runEmbedding() {
                 await persistRuns();
             }
             setStatus(dom.embeddingStatus, error.message || String(error), true);
+            restoreRunUi();
         });
     } catch (error) {
         setStatus(dom.embeddingStatus, error.message || String(error), true);
+        dom.runEmbeddingBtn.disabled = false;
+        dom.runEmbeddingBtn.innerHTML = '<i class="fa-solid fa-play me-2"></i>RUN EMBEDDING';
+        restoreRunUi();
     }
 }
 
@@ -903,6 +923,9 @@ async function initProject(user) {
     state.runs = dedupeRuns((state.projectData.pca_history || []).map(normalizeRunRecord));
     renderHistory();
     refreshPcaSourceList();
+    // Show the page before the default run's (possibly large) JSON is fetched,
+    // so the user sees a progress spinner instead of a blank window.
+    document.body.classList.add("loaded");
     await syncFeatureInContext();
 
     let shouldHideViz = true;
@@ -959,8 +982,18 @@ toggleEmbeddingParams();
 toggleViz(false);
 
 onAuthStateChanged(auth, async (user) => {
-    if (user && projectId) {
+    if (!user) return;
+    if (!projectId) {
+        window.location.href = "projectID.html";
+        return;
+    }
+    try {
         await initProject(user);
+    } catch (error) {
+        setStatus(dom.pcaStatus, error.message || String(error), true);
+        dom.plotWrap.innerHTML = "";
+        toggleViz(false);
+    } finally {
         document.body.classList.add("loaded");
     }
 });

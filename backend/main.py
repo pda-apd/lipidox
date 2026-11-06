@@ -164,6 +164,7 @@ from services.oplsda import (
     run_oplsda_permutation_checking_from_paths,
     run_oplsda_cvanova_checking_from_paths,
 )
+from services.splsda import run_splsda_from_paths
 from services.vip_combined import run_vip_combined
 from services.idconvert import convert_ids, RESULT_COLUMNS as IDCONVERT_COLUMNS, CSV_FIELDS as IDCONVERT_CSV_FIELDS
 from services.lipid_enrichment import (
@@ -174,6 +175,7 @@ from services.lipid_enrichment import (
     MAPPING_FRACTION_THRESHOLD,
 )
 from services.enrichment import _load_source_ttest_run
+from services.network_run import run_network, r_available
 
 app = FastAPI(title="LipidPortal API", version="2.0.0")
 
@@ -1026,6 +1028,42 @@ async def ttest_enrichment_run_lipid(req: EnrichmentRequest, user: User = Depend
 
 
 # ═══════════════════════════════════════════════════════════════
+# NETWORKS (LipidSigR: pathway activity / GATOM; needs Rscript)
+# ═══════════════════════════════════════════════════════════════
+
+class NetworkRunRequest(BaseModel):
+    project_id: str
+    settings: Dict[str, Any]
+
+
+@app.get("/network/availability")
+async def network_availability(user: User = Depends(get_current_user)):
+    return {"status": "ok", **r_available()}
+
+
+@app.post("/network/run")
+async def network_run_endpoint(req: NetworkRunRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db_dep)):
+    project = db.query(Project).filter(Project.id == req.project_id, Project.user_id == user.id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    availability = r_available()
+    if not availability["available"]:
+        raise HTTPException(
+            status_code=501,
+            detail="R/LipidSigR is not available on this server, so the network module is disabled. "
+                   "Set RSCRIPT_PATH or install R + LipidSigR.",
+        )
+    identity = reserve_task_identity(db, str(project.id))
+    db.commit()
+
+    _run_in_background(
+        run_network, project_id=req.project_id, uid=str(user.id), settings=req.settings,
+        run_id=identity["run_id"], task_id=identity["task_id"],
+    )
+    return {"status": "processing_network", "run_id": identity["run_id"], "task_id": identity["task_id"]}
+
+
+# ═══════════════════════════════════════════════════════════════
 # RANDOM FOREST / SVM
 # ═══════════════════════════════════════════════════════════════
 
@@ -1329,6 +1367,57 @@ async def oplsda_cvanova(req: OPLSDACheckingRequest, user: User = Depends(get_cu
 
 @app.post("/oplsda/load-run")
 async def oplsda_load_run(req: LoadRunRequest, user: User = Depends(get_current_user)):
+    uid = str(user.id)
+    try:
+        data = load_run_from_storage(uid, req.project_id, req.data_path)
+        return JSONResponse(content=data)
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+# ═══════════════════════════════════════════════════════════════
+# sPLS-DA
+# ═══════════════════════════════════════════════════════════════
+
+class SPLSDARunRequest(BaseModel):
+    project_id: str
+    name: str
+    matrix_path: str
+    meta_path: str
+    target_meta: str
+    ncomp: int = 2
+    keepX: List[int] = []
+    scale: bool = True
+    cv_folds: int = 5
+    selected_groups: Optional[List[str]] = None
+    run_id: Optional[str] = None
+    task_id: Optional[int] = None
+
+
+@app.post("/splsda/run")
+async def splsda_run(req: SPLSDARunRequest, user: User = Depends(get_current_user)):
+    uid = str(user.id)
+    try:
+        result = run_splsda_from_paths(
+            matrix_path=req.matrix_path, meta_path=req.meta_path, uid=uid, project_id=req.project_id,
+            target_meta=req.target_meta, ncomp=req.ncomp, keepX=req.keepX, scale=req.scale,
+            cv_folds=req.cv_folds, selected_groups=req.selected_groups,
+        )
+        run_id = _resolve_run_id("splsda", req.project_id, uid, req.name, req.run_id)
+        data_path = save_run_to_storage(uid, req.project_id, run_id, result)
+        return numpy_response({
+            "status": "ok", "run_id": run_id, "task_id": req.task_id, "type": "sPLS-DA", "name": req.name,
+            "config": {"target_meta": req.target_meta, "ncomp": req.ncomp, "keepX": req.keepX,
+                       "scale": req.scale, "cv_folds": req.cv_folds, "selected_groups": req.selected_groups or []},
+            "data": result, "data_path": data_path,
+        })
+    except Exception as e:
+        logger.exception("sPLS-DA run failed")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/splsda/load-run")
+async def splsda_load_run(req: LoadRunRequest, user: User = Depends(get_current_user)):
     uid = str(user.id)
     try:
         data = load_run_from_storage(uid, req.project_id, req.data_path)

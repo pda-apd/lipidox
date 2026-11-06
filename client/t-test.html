@@ -268,6 +268,7 @@
                             <div class="btn-group btn-group-sm results-tabs" role="group" aria-label="Result views">
                                 <button id="result-tab-overview" type="button" class="btn btn-outline-primary active">Overview</button>
                                 <button id="result-tab-enrichment" type="button" class="btn btn-outline-primary">Enrichment</button>
+                                <button id="result-tab-network" type="button" class="btn btn-outline-primary">Network</button>
                             </div>
                             <div id="analysis-compare-chip" class="analysis-chip">No DEA loaded</div>
                         </div>
@@ -332,6 +333,43 @@
 
                             <div id="enrichment-history-list" class="enrichment-history-list">
                                 <div class="enrichment-history-empty">Load a DEA result first to see related enrichment history.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="network-panel" class="results-body d-none">
+                        <div class="result-card enrichment-launch-card">
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <div>
+                                    <h6 class="fw-bold mb-1 text-primary small">Run Network From Current DE</h6>
+                                    <div class="small text-muted">Lipid networks are computed with LipidSigR on the server (R required).</div>
+                                </div>
+                                <button id="btn-open-network-modal" class="btn btn-primary btn-sm fw-bold">
+                                    <i class="fa-solid fa-diagram-project me-2"></i>Run Network
+                                </button>
+                            </div>
+
+                            <div class="enrichment-summary-grid">
+                                <div class="summary-tile">
+                                    <div class="summary-tile-label">DEA Comparison</div>
+                                    <div id="network-current-comparison" class="summary-tile-value">No DEA selected</div>
+                                </div>
+                                <div class="summary-tile">
+                                    <div class="summary-tile-label">Current Analysis</div>
+                                    <div id="network-current-analysis" class="summary-tile-value">Load a DEA result from history or run a new one.</div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h6 class="fw-bold mb-0 text-primary small">History</h6>
+                            </div>
+
+                            <div>
+                                <input id="network-history-search" class="form-control form-control-sm" placeholder="Search network history by title, network type, or comparison..." />
+                            </div>
+
+                            <div id="network-history-list" class="enrichment-history-list">
+                                <div class="enrichment-history-empty">Load a DEA result first to see related network history.</div>
                             </div>
                         </div>
                     </div>
@@ -471,8 +509,76 @@
         </div>
     </div>
 
+    <div class="modal fade" id="run-network-modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <h5 class="modal-title">Run Network</h5>
+                        <div class="small text-muted">Computed from the current DE results with LipidSigR.</div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-lg-6">
+                            <label class="form-label form-label-sm fw-bold">Network</label>
+                            <select id="network-type" class="form-select form-select-sm">
+                                <option value="pathway" selected>Pathway Activity Network</option>
+                                <option value="gatom">GATOM Network</option>
+                                <option value="lipid_reaction">Lipid Reaction Network</option>
+                            </select>
+                        </div>
+                        <div class="col-lg-6">
+                            <label class="form-label form-label-sm fw-bold">Organism</label>
+                            <select id="network-organism" class="form-select form-select-sm">
+                                <option value="human" selected>Human</option>
+                                <option value="mouse">Mouse</option>
+                            </select>
+                        </div>
+                        <div class="col-lg-6">
+                            <label class="form-label form-label-sm fw-bold">Control (reference) group</label>
+                            <select id="network-ref-group" class="form-select form-select-sm"></select>
+                            <div class="modal-field-note mt-1">Log2FC in the DE table is group1 &minus; group2, so group2 is the reference by default.</div>
+                        </div>
+                        <div class="col-lg-6">
+                            <label class="form-label form-label-sm fw-bold">Name</label>
+                            <input id="network-name" type="text" class="form-control form-control-sm" placeholder="Enter network run name" />
+                        </div>
+                        <div class="col-lg-4" id="network-n-lipid-col">
+                            <label class="form-label form-label-sm fw-bold">n_lipid</label>
+                            <input id="network-n-lipid" type="number" min="2" step="1" value="100" class="form-control form-control-sm" />
+                            <div class="modal-field-note mt-1">GATOM only: minimum lipids per reaction set.</div>
+                        </div>
+                        <div class="col-lg-4">
+                            <label class="form-label form-label-sm fw-bold">P cutoff</label>
+                            <input id="network-p-cutoff" type="number" min="0" max="1" step="0.01" value="0.05" class="form-control form-control-sm" />
+                        </div>
+                        <div class="col-lg-4">
+                            <label class="form-label form-label-sm fw-bold">Fold change cutoff</label>
+                            <input id="network-fc-cutoff" type="number" min="0" step="0.1" value="1" class="form-control form-control-sm" />
+                        </div>
+                        <div class="col-12">
+                            <div class="summary-tile">
+                                <div class="summary-tile-label">Current DEA Input</div>
+                                <div id="network-modal-source" class="summary-tile-value">-</div>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div id="network-modal-error" class="text-danger small"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" id="btn-run-network" class="btn btn-primary btn-sm fw-bold">Run</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="./src/js/vendor/plotly-2.35.2.min.js"></script>
     <script type="module" src="./src/js/t-test.js"></script>
 </body>
 </html>

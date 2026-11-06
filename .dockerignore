@@ -6,7 +6,7 @@ __pycache__/
 venv/
 env/
 
-# Local runtime data (HF uses its own /data volume)
+# Local runtime data (Docker mounts a writable /data volume)
 backend/storage/
 backend/backups/
 backend/.env

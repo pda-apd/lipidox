@@ -209,14 +209,19 @@ export function createAnalysisCore(ctx) {
             if (!fileUrl.startsWith("http://") && !fileUrl.startsWith("https://")) {
                 fileUrl = await getDownloadURL(ref(storage, run.data_path));
             }
-            const response = await fetch(fileUrl);
+            // Bound the fetch so a stalled request cannot leave the page
+            // spinner running forever.
+            const response = await fetch(fileUrl, { signal: AbortSignal.timeout(120000) });
             if (!response.ok) throw new Error("Failed to load run data from local storage");
             run.data = await response.json();
             const stateRun = state.runs.find((r) => r.run_id === run.run_id);
             if (stateRun && stateRun !== run) stateRun.data = run.data;
             return true;
         } catch (e) {
-            setStatus(ctx.statusEl(), e.message || String(e), true);
+            const message = e?.name === "TimeoutError"
+                ? "Loading run data timed out. Please re-run this analysis."
+                : (e.message || String(e));
+            setStatus(ctx.statusEl(), message, true);
             return false;
         }
     }

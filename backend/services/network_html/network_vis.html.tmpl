@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>@@TITLE@@</title>
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; color: #213042; background: #f4f7fb; }
+  .page-shell { height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+  .page-body { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(340px, 38%) minmax(0, 1fr); gap: 12px; padding: 12px; }
+  .card-shell { background: #fff; border: 1px solid #e2e9f0; border-radius: 14px; box-shadow: 0 10px 30px rgba(31,45,61,.06); overflow: hidden; }
+  .left-panel, .right-panel { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .card-head { padding: 12px 14px 8px; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .card-title { font-size: 12px; font-weight: 800; color: #213042; }
+  .btn-csv { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #0d6efd; color: #0d6efd; background: #fff; border-radius: 6px; padding: 4px 10px; font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+  .btn-csv:hover { background: #0d6efd; color: #fff; }
+  .small-note { font-size: 11px; color: #6d7b8b; margin-top: 2px; line-height: 1.35; }
+  .table-card { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+  .table-tools { padding: 0 14px 10px; display: flex; flex-direction: column; gap: 6px; }
+  .input { width: 100%; border: 1px solid #d6e0ea; border-radius: 8px; padding: 5px 8px; font-size: 12px; color: #213042; background: #fff; }
+  .input:focus { outline: none; border-color: #86b7fe; box-shadow: 0 0 0 3px rgba(13,110,253,.12); }
+  .num-filters { display: flex; flex-wrap: wrap; gap: 6px 10px; font-size: 11px; color: #6d7b8b; }
+  .num-filters label { display: inline-flex; align-items: center; gap: 4px; }
+  .num-filters input { width: 62px; border: 1px solid #d6e0ea; border-radius: 6px; padding: 3px 5px; font-size: 11px; }
+  .table-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 11px; table-layout: fixed; }
+  th, td { border-bottom: 1px solid #eef3f8; padding: 5px 8px; text-align: left; vertical-align: top; }
+  th { background: #f7fafd; color: #415569; font-weight: 700; position: sticky; top: 0; z-index: 1; cursor: pointer; white-space: normal; overflow-wrap: anywhere; }
+  td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  th:first-child, td:first-child { width: 30px; }
+  body[data-net="pathway"] table { min-width: 680px; }
+  body[data-net="gatom"] th:nth-child(2), body[data-net="gatom"] td:nth-child(2) { width: 33%; }
+  body[data-net="gatom"] th:nth-child(3), body[data-net="gatom"] td:nth-child(3) { width: 36%; }
+  body[data-net="gatom"] th:nth-child(4), body[data-net="gatom"] td:nth-child(4) { width: 12%; }
+  body[data-net="pathway"] th:nth-child(2), body[data-net="pathway"] td:nth-child(2) { width: 15%; }
+  body[data-net="pathway"] th:nth-child(3), body[data-net="pathway"] td:nth-child(3) { width: 17%; }
+  body[data-net="pathway"] th:nth-child(4), body[data-net="pathway"] td:nth-child(4) { width: 16%; }
+  body[data-net="pathway"] th:nth-child(5), body[data-net="pathway"] td:nth-child(5) { width: 14%; }
+  body[data-net="pathway"] th:nth-child(6), body[data-net="pathway"] td:nth-child(6) { width: 21%; }
+  tbody tr:nth-child(even) { background: #fafcff; }
+  tr.highlighted { background: #fff8c5; }
+  tbody tr:hover { background: #f5f9ff; }
+  .table-foot { padding: 8px 14px 10px; border-top: 1px solid #eef3f8; }
+  .viz-card { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+  .viz-topbar { flex: 0 0 auto; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 12px 14px; border-bottom: 1px solid #eef3f8; }
+  .viz-title { font-size: 12px; font-weight: 700; color: #415569; margin-top: 2px; }
+  .viz-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .mode-switch, .hide-circles { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: #415569; white-space: nowrap; }
+  .mode-switch select { border: 1px solid #cfd8e3; border-radius: 6px; padding: 3px 6px; font-size: 11px; color: #213042; background: #fff; max-width: 250px; }
+  .hide-circles input { margin: 0; }
+  .icon-btn { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #cfd8e3; border-radius: 8px; background: #fff; color: #415569; cursor: pointer; }
+  .icon-btn:hover, .icon-btn[aria-expanded="true"] { background: #f1f5f9; color: #213042; }
+  #networkWrapper { position: relative; flex: 1 1 auto; min-height: 0; }
+  #mynetwork { width: 100%; height: 100%; }
+  #legend { position: absolute; top: 10px; right: 10px; background: rgba(255,255,255,.95); border: 1px solid #cfd8e3; padding: 6px 10px; z-index: 20; border-radius: 6px; box-shadow: 0 2px 8px rgba(31,45,61,.12); cursor: default; user-select: none; }
+  #config { position: fixed; z-index: 9999; display: none; width: 275px; max-height: calc(100vh - 24px); overflow-y: auto; background: #fff; border: 1px solid #dee2e6; border-radius: 10px; box-shadow: 0 4px 18px rgba(0,0,0,.15); padding: 14px 16px; font-size: .8rem; color: #343a40; }
+  #config.open { display: block; }
+  .cfg-title { font-weight: 700; font-size: .85rem; border-bottom: 1px solid #eee; padding-bottom: 7px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+  .cfg-section { font-weight: 600; font-size: .8rem; margin: 12px 0 8px; }
+  .cfg-field { margin-bottom: 10px; }
+  .cfg-field .row { display: flex; justify-content: space-between; margin-bottom: 3px; }
+  .cfg-field input[type=range] { width: 100%; height: 4px; cursor: pointer; }
+  .cfg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+  .cfg-grid label { display: block; font-size: .74rem; color: #6d7b8b; margin-bottom: 2px; }
+  .cfg-grid input { width: 100%; border: 1px solid #d6e0ea; border-radius: 6px; padding: 4px 6px; font-size: .78rem; }
+  .seg { display: flex; border: 1px solid #cfd8e3; border-radius: 6px; overflow: hidden; }
+  .seg-btn { flex: 1 1 0; border: 0; background: #fff; padding: 5px 0; font-size: .78rem; font-weight: 600; color: #415569; cursor: pointer; }
+  .seg-btn + .seg-btn { border-left: 1px solid #cfd8e3; }
+  .seg-btn.active { background: #0d6efd; color: #fff; }
+  .cfg-note { font-size: .72rem; color: #6d7b8b; margin: 6px 0 2px; line-height: 1.35; }
+  .cfg-check { display: flex; align-items: center; gap: 6px; font-size: .76rem; color: #415569; margin-bottom: 8px; }
+  #config button.cfg-btn { width: 100%; border: 1px solid #0d6efd; background: #fff; color: #0d6efd; border-radius: 6px; padding: 6px 10px; font-size: .78rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; margin-top: 6px; }
+  #config button.cfg-btn:hover { background: #0d6efd; color: #fff; }
+  #config button.cfg-btn.secondary { border-color: #6c757d; color: #495057; }
+  #config button.cfg-btn.secondary:hover { background: #495057; color: #fff; }
+  .ctx-menu { position: fixed; background: white; border: 1px solid #999; padding: 4px 0; box-shadow: 2px 2px 8px rgba(0,0,0,0.3); display: none; z-index: 1000; min-width: 220px; }
+  .ctx-menu div { padding: 6px 14px; cursor: pointer; font-size: 12px; }
+  .ctx-menu div:hover { background: #e8e8e8; }
+  .hint { color: #6d7b8b; font-size: 11px; }
+</style>
+</head>
+<body>
+<div class="page-shell">
+  <main class="page-body">
+    <aside class="left-panel">
+      <section class="card-shell table-card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">@@SELECTION_LABEL@@</div>
+            <div class="small-note">@@SELECTION_HINT@@</div>
+          </div>
+          <button type="button" class="btn-csv" onclick="downloadTable()" title="Download the full network table (metadata, nodes, edges, reactions)">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.25 1.5h1.5v6.69l2.22-2.22 1.06 1.06L8 11.06 3.97 7.03l1.06-1.06 2.22 2.22V1.5z"/><path d="M2.5 12.5h11V14h-11z"/></svg>.CSV
+          </button>
+        </div>
+        <div class="table-tools">
+          <input type="text" id="selSearch" class="input" oninput="applySelFilter()" placeholder="Search any text...">
+          <div id="selNumFilters" class="num-filters"></div>
+        </div>
+        <div class="table-scroll">
+          <div id="selectionTable"></div>
+        </div>
+        <div class="table-foot"><span id="selCount" class="hint"></span></div>
+      </section>
+    </aside>
+    <section class="right-panel">
+      <section class="card-shell viz-card">
+        <div class="viz-topbar">
+          <div>
+            <div class="card-title">Network</div>
+            <div id="figTitle" class="viz-title">@@TITLE@@</div>
+          </div>
+          <div class="viz-actions">
+            @@MODE_SWITCH@@
+            <button type="button" id="gearBtn" class="icon-btn" title="Network settings" aria-label="Network settings" aria-expanded="false" aria-controls="config" onclick="toggleConfigPanel()">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </button>
+          </div>
+        </div>
+        <div id="networkWrapper">
+          <div id="mynetwork"></div>
+          <div id="legend"><div id="legendContent" style="font-size:11px;line-height:1.6;"></div></div>
+        </div>
+      </section>
+    </section>
+  </main>
+</div>
+
+<div id="config">
+  <div class="cfg-title">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2" fill="#fff"/><circle cx="15" cy="12" r="2" fill="#fff"/><circle cx="8" cy="18" r="2" fill="#fff"/></svg>
+    Plot Settings
+  </div>
+  <div class="cfg-section">Display</div>
+  <div class="cfg-field"><div class="row"><span>Circle scale</span><b id="circleScaleVal">1.0</b></div><input type="range" id="circleScale" min="0.2" max="3" step="0.1" value="1" oninput="applyConfig()"></div>
+  <div class="cfg-field"><div class="row"><span>Square scale</span><b id="squareScaleVal">1.0</b></div><input type="range" id="squareScale" min="0.2" max="3" step="0.1" value="1" oninput="applyConfig()"></div>
+  <div class="cfg-field"><div class="row"><span>Font size</span><b id="fontSizeVal">14</b></div><input type="range" id="fontSize" min="5" max="100" step="1" value="14" oninput="applyConfig()"></div>
+  <div class="cfg-field"><div class="row"><span>Line thickness</span><b id="lineScaleVal">1.0</b></div><input type="range" id="lineScale" min="0.2" max="5" step="0.1" value="1" oninput="applyConfig()"></div>
+  <div class="cfg-field"><div class="row"><span>Arrow scale</span><b id="arrowScaleVal">1.0</b></div><input type="range" id="arrowScale" min="0.2" max="3" step="0.1" value="1" oninput="applyConfig()"></div>
+  <div class="cfg-field"><div class="row"><span>Edge opacity</span><b id="edgeOpacityVal">100%</b></div><input type="range" id="edgeOpacity" min="0" max="100" step="5" value="100" oninput="updateEdgeOpacity()"></div>
+  <div class="cfg-field"><div class="row"><span>Legend font</span><b id="legendFontSizeVal">11</b></div><input type="range" id="legendFontSize" min="8" max="20" step="1" value="11" oninput="updateLegendFont()"></div>
+  <div class="cfg-section">Image</div>
+  <div class="cfg-grid">
+    <div><label for="netWidth">Width (px)</label><input type="number" id="netWidth" value="1400" min="400" max="8000" step="10"></div>
+    <div><label for="netHeight">Height (px)</label><input type="number" id="netHeight" value="900" min="300" max="6000" step="10"></div>
+  </div>
+  <div class="cfg-field">
+    <div class="row"><span>Format</span></div>
+    <div class="seg" id="fmtSeg">
+      <button type="button" class="seg-btn active" data-fmt="svg" onclick="setFormat('svg')">SVG</button>
+      <button type="button" class="seg-btn" data-fmt="png" onclick="setFormat('png')">PNG</button>
+    </div>
+  </div>
+  <div class="cfg-note">SVG: vector (recommended). PNG: raster ×6 scale.</div>
+  <button type="button" class="cfg-btn" id="downloadImageBtn" onclick="exportImage()"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.25 1.5h1.5v6.69l2.22-2.22 1.06 1.06L8 11.06 3.97 7.03l1.06-1.06 2.22 2.22V1.5z"/><path d="M2.5 12.5h11V14h-11z"/></svg>Download SVG</button>
+</div>
+<div class="ctx-menu" id="ctxMenu">
+  <div onclick="highlightConnected()">Highlight 1-hop neighbors</div>
+  <div onclick="highlightAllPathsForNode()">Highlight all paths containing this node</div>
+  <div onclick="resetHighlight()">Reset</div>
+</div>
+
+<script>
+const PRIMARY_MODE = "@@LIPID_MODE@@";
+const OTHER_MODE = @@OTHER_MODE@@;
+let CURRENT_MODE = PRIMARY_MODE;
+let NODES = @@NODES@@;
+let EDGES = @@EDGES@@;
+const NETWORK_TYPE = "@@NETWORK_TYPE@@";
+let EXTRA = @@EXTRA@@;
+document.body.dataset.net = NETWORK_TYPE;
+
+const MODE_PAYLOADS = {};
+if (PRIMARY_MODE) {
+  MODE_PAYLOADS[PRIMARY_MODE] = {
+    mode: PRIMARY_MODE, title: document.getElementById('figTitle').textContent,
+    nodes: NODES, edges: EDGES, extra: EXTRA
+  };
+}
+if (OTHER_MODE) MODE_PAYLOADS[OTHER_MODE.mode] = OTHER_MODE;
+
+// Class p-value shown in the centre of a lipid-reaction class square.
+function classPValue(title) {
+  const m = String(title || '').match(/pval:\s*([^\s<]+)/i);
+  if (!m) return '';
+  const v = parseFloat(m[1]);
+  if (!isFinite(v)) return '';
+  const s = v >= 0.001 ? v.toFixed(3) : v.toExponential(2);
+  return s.replace(/e([+-])(\d)$/, 'e$10$2');
+}
+
+function decorateNodes(nodes) {
+  if (NETWORK_TYPE !== 'lipid_reaction') return nodes;
+  nodes.forEach(n => {
+    if (n.shape !== 'square') return;
+    n._isClass = true;
+    n.shape = 'custom';
+    n.ctxRenderer = function(args) {
+      const ctx = args.ctx, x = args.x, y = args.y, style = args.style || {};
+      const size = style.size || n.size || 20;
+      const c = style.color;
+      const fill = typeof c === 'string' ? c : ((c && (c.background || c.border)) || n.color || '#ccc');
+      ctx.beginPath();
+      ctx.rect(x - size, y - size, size * 2, size * 2);
+      ctx.fillStyle = fill;
+      ctx.fill();
+      ctx.lineWidth = args.state && args.state.selected ? 2 : 1;
+      ctx.strokeStyle = '#333';
+      ctx.stroke();
+      const txt = classPValue(n.title);
+      if (txt) {
+        ctx.fillStyle = '#213042';
+        ctx.font = `600 ${Math.max(8, Math.min(12, size * 0.34)).toFixed(1)}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(txt, x, y);
+      }
+      const label = args.label || n.label;
+      if (label) {
+        const f = style.font || {};
+        ctx.fillStyle = typeof f.color === 'string' ? f.color : '#333';
+        ctx.font = `${f.size || 14}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText(label, x, y + size + 4);
+      }
+      return { nodeDimensions: { width: size * 2, height: size * 2 } };
+    };
+  });
+  return nodes;
+}
+
+// ----- Network init -----
+// Base arrowhead scale: vis-network draws arrowheads relative to edge width, so
+// LipidSigR's 1-px weak edges otherwise get sub-pixel arrows.
+const ARROW_SCALE = 1.2;
+const container = document.getElementById('mynetwork');
+// Per-edge arrows: LipidSigR species links have arrows="" (undirected).
+const data = {
+  nodes: new vis.DataSet(decorateNodes(NODES)),
+  edges: new vis.DataSet(EDGES.map(e => ({
+    ...e,
+    arrows: { to: { enabled: e.arrows === 'to' || e.arrows === 'both' } }
+  })))
+};
+const options = {
+  physics: { stabilization: { iterations: 200 }, barnesHut: { gravitationalConstant: -3000, springLength: 150 } },
+  interaction: { hover: true, tooltipDelay: 200, dragNodes: true, navigationButtons: true, keyboard: false },
+  nodes: { font: { size: 14, face: 'sans-serif' }, borderWidth: 1, borderWidthSelected: 2 },
+  edges: { arrows: { to: { enabled: true, scaleFactor: ARROW_SCALE } }, font: { size: 11, face: 'sans-serif' }, smooth: { enabled: true, type: 'continuous' } },
+  layout: { improvedLayout: false }
+};
+const network = new vis.Network(container, data, options);
+
+// Disable physics after stabilization so dragged nodes don't snap back,
+// then fit once now that the canvas has its final card size.
+network.once('stabilizationIterationsDone', () => {
+  network.setOptions({ physics: false });
+  network.fit({ animation: false });
+  console.log('Physics disabled — drag freely');
+});
+
+// ----- Apply config (sliders) -----
+function applyConfig() {
+  const cs = parseFloat(document.getElementById('circleScale').value);
+  const ss = parseFloat(document.getElementById('squareScale').value);
+  const fs = parseInt(document.getElementById('fontSize').value);
+  const ls = parseFloat(document.getElementById('lineScale').value);
+  const as = parseFloat(document.getElementById('arrowScale').value);
+  document.getElementById('circleScaleVal').textContent = cs.toFixed(1);
+  document.getElementById('squareScaleVal').textContent = ss.toFixed(1);
+  document.getElementById('fontSizeVal').textContent = fs;
+  document.getElementById('lineScaleVal').textContent = ls.toFixed(1);
+  document.getElementById('arrowScaleVal').textContent = as.toFixed(1);
+  const nodesDS = network.body.data.nodes;
+  NODES.forEach(n => {
+    const scale = (n._isClass || n.shape === 'square') ? ss : cs;
+    n.size = (n._origSize || 15) * scale;
+    n.font = { size: fs };
+  });
+  nodesDS.update(NODES.map(n => ({ id: n.id, size: n.size, font: { size: fs } })));
+  const edgesDS = network.body.data.edges;
+  EDGES.forEach(e => { e.width = Math.max(0.3, (e._origWidth || 1) * ls); });
+  edgesDS.update(EDGES.map(e => ({ id: e.id, width: e.width })));
+  network.setOptions({
+    nodes: { font: { size: fs } },
+    edges: { font: { size: Math.max(7, fs - 3) }, arrows: { to: { scaleFactor: ARROW_SCALE * as } } }
+  });
+}
+
+function updateEdgeOpacity() {
+  const v = parseInt(document.getElementById('edgeOpacity').value);
+  document.getElementById('edgeOpacityVal').textContent = v + '%';
+  const op = v / 100;
+  const edgesDS = network.body.data.edges;
+  edgesDS.update(EDGES.map(e => {
+    const orig = origEdgeColors.get(e.id) || '#888';
+    let r, g, b;
+    if (orig.startsWith('#')) {
+      r = parseInt(orig.slice(1,3), 16); g = parseInt(orig.slice(3,5), 16); b = parseInt(orig.slice(5,7), 16);
+    } else { r=200; g=200; b=200; }
+    return { id: e.id, color: `rgba(${r},${g},${b},${op})`, font: Object.assign({}, e.font, { color: `rgba(51,51,51,${Math.min(1,op+0.3)})` }) };
+  }));
+}
+
+// Canvas fills the viz card; netWidth/netHeight are export dimensions only.
+function fitNetwork() {
+  const wrapper = document.getElementById('networkWrapper');
+  if (!wrapper) return;
+  network.setSize(Math.max(200, wrapper.clientWidth) + 'px', Math.max(200, wrapper.clientHeight) + 'px');
+  network.redraw();
+}
+
+function toggleConfigPanel() {
+  const panel = document.getElementById('config');
+  const btn = document.getElementById('gearBtn');
+  if (panel.classList.contains('open')) {
+    panel.classList.remove('open');
+    btn.setAttribute('aria-expanded', 'false');
+    return;
+  }
+  const rect = btn.getBoundingClientRect();
+  const pad = 8, width = panel.offsetWidth || 290;
+  let left = rect.right - width;
+  left = Math.max(pad, Math.min(left, window.innerWidth - width - pad));
+  panel.style.left = left + 'px';
+  panel.classList.add('open');
+  const height = panel.getBoundingClientRect().height;
+  const below = window.innerHeight - rect.bottom - pad;
+  const fitsBelow = height <= below || below >= rect.top - pad;
+  panel.style.maxHeight = Math.max(180, fitsBelow ? below : rect.top - pad) + 'px';
+  panel.style.top = Math.max(pad, fitsBelow ? rect.bottom + 6 : rect.top - height - 6) + 'px';
+  btn.setAttribute('aria-expanded', 'true');
+}
+
+document.addEventListener('click', e => {
+  const panel = document.getElementById('config');
+  if (!panel.classList.contains('open')) return;
+  if (panel.contains(e.target) || document.getElementById('gearBtn').contains(e.target)) return;
+  toggleConfigPanel();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('config').classList.contains('open')) toggleConfigPanel();
+});
+
+// ----- Save original colors for highlight reset -----
+const origNodeColors = new Map();
+const origEdgeColors = new Map();
+NODES.forEach(n => origNodeColors.set(n.id, n.color || '#ccc'));
+EDGES.forEach(e => origEdgeColors.set(e.id, e.color || '#888'));
+
+// Build label→id map (GATOM uses ChEBI IDs but Path field has lipid names)
+const labelToIds = new Map();
+NODES.forEach(n => {
+  if (!labelToIds.has(n.id)) labelToIds.set(n.id, new Set([n.id]));
+  if (n.label) { if (!labelToIds.has(n.label)) labelToIds.set(n.label, new Set()); labelToIds.get(n.label).add(n.id); }
+});
+
+function resetHighlight() {
+  const nodesDS = network.body.data.nodes;
+  const edgesDS = network.body.data.edges;
+  nodesDS.update(NODES.map(n => ({ id: n.id, color: origNodeColors.get(n.id), font: { color: '#333' }, zIndex: 0 })));
+  edgesDS.update(EDGES.map(e => ({ id: e.id, color: origEdgeColors.get(e.id), font: { color: '#333' } })));
+  updateEdgeOpacity();
+  document.querySelectorAll('#selectionTable tr').forEach(tr => tr.classList.remove('highlighted'));
+  document.querySelectorAll('#selectionTable input[type=checkbox]').forEach(cb => cb.checked = false);
+  selectedRows.clear();
+  accumulatedNodes.clear();
+  accumulatedEdges.clear();
+}
+
+// ----- Toggle circle (species) nodes visibility (lipid_reaction only) -----
+function toggleCircles() {
+  const hide = document.getElementById('hideCircles').checked;
+  const nodesDS = network.body.data.nodes;
+  const updates = NODES.map(n => ({
+    id: n.id,
+    hidden: hide && !n._isClass
+  }));
+  nodesDS.update(updates);
+  // Also hide edges connected to hidden nodes
+  const hiddenNodes = new Set(NODES.filter(n => hide && !n._isClass).map(n => n.id));
+  const edgesDS = network.body.data.edges;
+  edgesDS.update(EDGES.map(e => ({
+    id: e.id,
+    hidden: hiddenNodes.has(e.from) || hiddenNodes.has(e.to)
+  })));
+}
+
+// Convert hex color to rgba with opacity
+function hexToRgba(hex, opacity) {
+  if (!hex || !hex.startsWith('#')) return `rgba(200,200,200,${opacity})`;
+  const r = parseInt(hex.slice(1,3), 16) || 200;
+  const g = parseInt(hex.slice(3,5), 16) || 200;
+  const b = parseInt(hex.slice(5,7), 16) || 200;
+  return `rgba(${r},${g},${b},${opacity})`;
+}
+
+function highlightSet(nodeIds, edgeIds) {
+  const nodesDS = network.body.data.nodes;
+  const edgesDS = network.body.data.edges;
+  const nSet = new Set(nodeIds);
+  const eSet = new Set(edgeIds);
+  // Highlighted: 100% opacity (full color) + high z-index. Non-highlighted: grey #CCCCCC at 20% opacity.
+  nodesDS.update(NODES.map(n => {
+    const isHl = nSet.has(n.id);
+    const orig = origNodeColors.get(n.id) || '#ccc';
+    return { id: n.id, color: isHl ? orig : 'rgba(204,204,204,0.2)', font: { color: isHl ? '#333' : 'rgba(204,204,204,0.2)' }, zIndex: isHl ? 1000 : 0 };
+  }));
+  edgesDS.update(EDGES.map(e => {
+    const isHl = eSet.has(e.id);
+    const orig = origEdgeColors.get(e.id) || '#888';
+    return { id: e.id, color: isHl ? orig : 'rgba(204,204,204,0.2)', font: { color: isHl ? '#333' : 'rgba(204,204,204,0)' } };
+  }));
+}
+
+// ----- Click handler (GATOM-style: click node → highlight 1-hop) -----
+let accumulatedNodes = new Set();
+let accumulatedEdges = new Set();
+
+network.on('click', params => {
+  if (params.nodes.length > 0) {
+    const id = params.nodes[0];
+    const cn = network.getConnectedNodes(id);
+    const ce = network.getConnectedEdges(id);
+    const ctrlKey = params.event && (params.event.ctrlKey || (params.event.srcEvent && params.event.srcEvent.ctrlKey));
+    if (ctrlKey) {
+      // Ctrl+click: accumulate
+      accumulatedNodes.add(id);
+      cn.forEach(n => accumulatedNodes.add(n));
+      ce.forEach(e => accumulatedEdges.add(e));
+    } else {
+      // Normal click: reset accumulation, single highlight
+      accumulatedNodes = new Set([id, ...cn]);
+      accumulatedEdges = new Set(ce);
+    }
+    highlightSet(Array.from(accumulatedNodes), Array.from(accumulatedEdges));
+  } else {
+    accumulatedNodes.clear();
+    accumulatedEdges.clear();
+    resetHighlight();
+  }
+});
+
+// ----- Group drag for lipid_reaction (drag class node → connected species follow) -----
+let dragGroupNodeIds = null;
+let dragGroupLastPos = null;
+
+network.on('dragStart', function(params) {
+  if (NETWORK_TYPE !== 'lipid_reaction') return;
+  if (params.nodes.length === 0) return;
+  const draggedId = params.nodes[0];
+  const node = NODES.find(n => n.id === draggedId);
+  if (node && node._isClass) {
+    // This is a class node — find connected species (dot) nodes
+    dragGroupNodeIds = network.getConnectedNodes(draggedId).filter(function(id) {
+      const n = NODES.find(nn => nn.id === id);
+      return n && !n._isClass;
+    });
+    dragGroupLastPos = { x: params.pointer.canvas.x, y: params.pointer.canvas.y };
+  } else {
+    dragGroupNodeIds = null;
+    dragGroupLastPos = null;
+  }
+});
+
+network.on('dragging', function(params) {
+  if (!dragGroupNodeIds || dragGroupNodeIds.length === 0 || !dragGroupLastPos) return;
+  if (params.nodes.length === 0) return;
+  const draggedId = params.nodes[0];
+  const currentPos = network.getPositions([draggedId])[draggedId];
+  // Calculate delta from last position
+  // We need the previous position of the dragged node
+  if (!dragGroupLastPos.x) {
+    dragGroupLastPos = { x: currentPos.x, y: currentPos.y };
+    return;
+  }
+  const dx = currentPos.x - dragGroupLastPos.x;
+  const dy = currentPos.y - dragGroupLastPos.y;
+  if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) return;
+  // Move all species nodes by the same delta
+  const nodesDS = network.body.data.nodes;
+  dragGroupNodeIds.forEach(function(id) {
+    const pos = network.getPositions([id])[id];
+    if (pos) {
+      nodesDS.update({ id: id, x: pos.x + dx, y: pos.y + dy });
+    }
+  });
+  dragGroupLastPos = { x: currentPos.x, y: currentPos.y };
+});
+
+network.on('dragEnd', function() {
+  dragGroupNodeIds = null;
+  dragGroupLastPos = null;
+});
+
+// ----- Right-click context menu -----
+let rightClickedNode = null;
+network.on('oncontext', params => {
+  params.event.preventDefault();
+  const nodeId = network.getNodeAt(params.pointer.DOM);
+  if (nodeId) {
+    rightClickedNode = nodeId;
+    const menu = document.getElementById('ctxMenu');
+    menu.style.display = 'block';
+    menu.style.left = params.event.clientX + 'px';
+    menu.style.top = params.event.clientY + 'px';
+  }
+});
+document.addEventListener('click', () => document.getElementById('ctxMenu').style.display = 'none');
+
+function highlightConnected() {
+  if (!rightClickedNode) return;
+  const cn = network.getConnectedNodes(rightClickedNode);
+  const ce = network.getConnectedEdges(rightClickedNode);
+  highlightSet([rightClickedNode, ...cn], ce);
+}
+
+// ----- Selection table (pathway + lipid_reaction) -----
+const selectedRows = new Set();
+let selSortCol = null, selSortDir = 1;
+
+function sortSelRowIdx() {
+  const idx = EXTRA.rows.map((_, i) => i);
+  if (!selSortCol) return idx;
+  const num = v => (v !== null && v !== undefined && v !== '' && isFinite(parseFloat(v))) ? parseFloat(v) : null;
+  idx.sort((a, b) => {
+    const va = EXTRA.rows[a][selSortCol], vb = EXTRA.rows[b][selSortCol];
+    const na = num(va), nb = num(vb);
+    let c;
+    if (na !== null && nb !== null) c = na - nb;
+    else if (na !== null || nb !== null) c = (na !== null) ? -1 : 1; // numbers first
+    else c = String(va === null || va === undefined ? '' : va).localeCompare(String(vb === null || vb === undefined ? '' : vb));
+    return c * selSortDir;
+  });
+  return idx;
+}
+
+function buildSelectionTable() {
+  const tbl = document.getElementById('selectionTable');
+  if (!EXTRA.rows || EXTRA.rows.length === 0) {
+    tbl.innerHTML = '';
+    document.getElementById('selCount').textContent = '0 / 0 rows';
+    return;
+  }
+  let html = '<table><thead><tr><th></th>';
+  EXTRA.columns.forEach((c, ci) => {
+    const arrow = selSortCol === c ? (selSortDir === 1 ? ' &uarr;' : ' &darr;') : '';
+    html += `<th data-colidx="${ci}" style="cursor:pointer">${c}${arrow}</th>`;
+  });
+  html += '</tr></thead><tbody>';
+  sortSelRowIdx().forEach(i => {
+    const r = EXTRA.rows[i];
+    html += `<tr data-row-idx="${i}"${selectedRows.has(i) ? ' class="highlighted"' : ''}><td><input type="checkbox" onchange="toggleRow(${i})"${selectedRows.has(i) ? ' checked' : ''}></td>`;
+    EXTRA.columns.forEach(c => {
+      let v = r[c];
+      if (v === null || v === undefined) v = '';
+      // reaction/enzyme: show in full (mirrors the edge hover text); others truncate
+      let s = String(v);
+      if (s.length > 80 && c !== 'reaction' && c !== 'enzyme') s = s.substring(0, 80) + '...';
+      html += `<td title="${String(v).replace(/"/g, '&quot;')}">${s}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  tbl.innerHTML = html;
+  tbl.querySelector('thead').addEventListener('click', ev => {
+    const th = ev.target.closest('th[data-colidx]');
+    if (!th) return;
+    const c = EXTRA.columns[parseInt(th.dataset.colidx)];
+    if (selSortCol === c) selSortDir = -selSortDir; else { selSortCol = c; selSortDir = 1; }
+    buildSelectionTable();
+  });
+  initSelFilters();
+  applySelFilter();
+}
+
+// ----- table filter: text search + numeric low<>high per numeric column -----
+function selNumericCols() {
+  return (EXTRA.columns || []).filter(c => {
+    const vals = EXTRA.rows.map(r => r[c]).filter(v => v !== null && v !== undefined && v !== '');
+    if (!vals.length) return false;
+    // mostly-numeric rule: tolerate stray 'inf'/'NaN' strings (e.g. pathway_score)
+    return vals.filter(v => isFinite(parseFloat(v))).length >= vals.length * 0.5;
+  });
+}
+function sfId(prefix, c) { return prefix + '_' + String(c).replace(/\W+/g, '_'); }
+
+function initSelFilters() {
+  const box = document.getElementById('selNumFilters');
+  if (box.dataset.built) return;
+  box.dataset.built = '1';
+  let html = '';
+  selNumericCols().forEach(c => {
+    html += `<label>${c}: ` +
+      `<input type="number" step="any" id="${sfId('sflo', c)}" style="width:64px" oninput="applySelFilter()"> &harr; ` +
+      `<input type="number" step="any" id="${sfId('sfhi', c)}" style="width:64px" oninput="applySelFilter()"></label>`;
+  });
+  box.innerHTML = html;
+}
+
+function applySelFilter() {
+  if (!EXTRA.rows || EXTRA.rows.length === 0) return;
+  const q = (document.getElementById('selSearch').value || '').trim().toLowerCase();
+  const ranges = selNumericCols().map(c => {
+    const lo = parseFloat(document.getElementById(sfId('sflo', c)).value);
+    const hi = parseFloat(document.getElementById(sfId('sfhi', c)).value);
+    const rlo = isNaN(lo) ? -Infinity : lo, rhi = isNaN(hi) ? Infinity : hi;
+    const active = rlo !== -Infinity || rhi !== Infinity;
+    if (!active) return null; // no bound set -> column not filtered, 'inf' rows kept
+    return { c, lo: rlo, hi: rhi };
+  }).filter(Boolean);
+  let shown = 0;
+  EXTRA.rows.forEach((r, i) => {
+    const tr = document.querySelector(`#selectionTable tr[data-row-idx="${i}"]`);
+    if (!tr) return;
+    let ok = true;
+    if (q) {
+      const hay = EXTRA.columns.map(c => String(r[c] === null || r[c] === undefined ? '' : r[c])).join(' ').toLowerCase();
+      if (!hay.includes(q)) ok = false;
+    }
+    if (ok) for (const rg of ranges) {
+      const v = r[rg.c];
+      if (v === null || v === undefined || v === '') continue;
+      const n = parseFloat(v);
+      if (!isFinite(n) || n < rg.lo || n > rg.hi) { ok = false; break; }
+    }
+    tr.style.display = ok ? '' : 'none';
+    if (ok) shown++;
+  });
+  document.getElementById('selCount').textContent = `${shown} / ${EXTRA.rows.length} rows`;
+}
+
+function toggleRow(idx) {
+  if (selectedRows.has(idx)) selectedRows.delete(idx);
+  else selectedRows.add(idx);
+  applySelectionHighlight();
+  const tr = document.querySelector(`#selectionTable tr[data-row-idx="${idx}"]`);
+  if (tr) tr.classList.toggle('highlighted', selectedRows.has(idx));
+}
+
+function applySelectionHighlight() {
+  if (selectedRows.size === 0) { resetHighlight(); return; }
+  const nIds = new Set();
+  const eIds = new Set();
+  selectedRows.forEach(idx => {
+    const row = EXTRA.rows[idx];
+    const chain = String(row[EXTRA.chainField] || '');
+    const parts = chain.split(/\s*->\s*/).map(s => s.trim()).filter(Boolean);
+    parts.forEach(p => { const ids = labelToIds.get(p); if (ids) ids.forEach(id => nIds.add(id)); else nIds.add(p); });
+    for (let i = 0; i < parts.length - 1; i++) {
+      EDGES.forEach(e => {
+        const fromIds = labelToIds.get(parts[i]) || new Set([parts[i]]); const toIds = labelToIds.get(parts[i+1]) || new Set([parts[i+1]]);
+        if ((fromIds.has(e.from) && toIds.has(e.to)) || (toIds.has(e.from) && fromIds.has(e.to))) {
+          eIds.add(e.id);
+        }
+      });
+    }
+  });
+  highlightSet(Array.from(nIds), Array.from(eIds));
+}
+
+function highlightAllPathsForNode() {
+  if (!rightClickedNode || !EXTRA.rows) { highlightConnected(); return; }
+  const nodeId = rightClickedNode;
+  const nodeLabel = NODES.find(n => n.id === nodeId) ? NODES.find(n => n.id === nodeId).label : nodeId;
+  const nIds = new Set([nodeId]);
+  const eIds = new Set();
+  const rowsToSel = [];
+  EXTRA.rows.forEach((row, idx) => {
+    const chain = String(row[EXTRA.chainField] || '');
+    const parts = chain.split(/\s*->\s*/).map(s => s.trim()).filter(Boolean);
+    if (parts.includes(nodeId) || parts.includes(nodeLabel)) {
+      rowsToSel.push(idx);
+      parts.forEach(p => { const ids = labelToIds.get(p); if (ids) ids.forEach(id => nIds.add(id)); else nIds.add(p); });
+      for (let i = 0; i < parts.length - 1; i++) {
+        EDGES.forEach(e => {
+          const fromIds2 = labelToIds.get(parts[i]) || new Set([parts[i]]); const toIds2 = labelToIds.get(parts[i+1]) || new Set([parts[i+1]]);
+          if ((fromIds2.has(e.from) && toIds2.has(e.to)) || (toIds2.has(e.from) && fromIds2.has(e.to))) {
+            eIds.add(e.id);
+          }
+        });
+      }
+    }
+  });
+  document.querySelectorAll('#selectionTable input[type=checkbox]').forEach(cb => {
+    const i = parseInt(cb.closest('tr').dataset.rowIdx);
+    cb.checked = rowsToSel.includes(i);
+    cb.closest('tr').classList.toggle('highlighted', rowsToSel.includes(i));
+  });
+  selectedRows.clear();
+  rowsToSel.forEach(i => selectedRows.add(i));
+  highlightSet(Array.from(nIds), Array.from(eIds));
+}
+
+// ----- Reaction display mode (lipid_reaction only) -----
+function setMode(mode) {
+  const p = MODE_PAYLOADS[mode];
+  if (!p || mode === CURRENT_MODE) return;
+  NODES = p.nodes; EDGES = p.edges; EXTRA = p.extra; CURRENT_MODE = mode;
+  const sel = document.getElementById('modeSelect');
+  if (sel) sel.value = mode;
+  document.getElementById('figTitle').textContent = p.title;
+  document.title = p.title;
+
+  origNodeColors.clear(); origEdgeColors.clear(); labelToIds.clear();
+  NODES.forEach(n => {
+    origNodeColors.set(n.id, n.color || '#ccc');
+    if (!labelToIds.has(n.id)) labelToIds.set(n.id, new Set([n.id]));
+    if (n.label) { if (!labelToIds.has(n.label)) labelToIds.set(n.label, new Set()); labelToIds.get(n.label).add(n.id); }
+  });
+  EDGES.forEach(e => origEdgeColors.set(e.id, e.color || '#888'));
+
+  data.nodes.clear();
+  data.nodes.add(decorateNodes(NODES));
+  data.edges.clear();
+  data.edges.add(EDGES.map(e => ({
+    ...e,
+    arrows: { to: { enabled: e.arrows === 'to' || e.arrows === 'both' } }
+  })));
+
+  selectedRows.clear(); accumulatedNodes.clear(); accumulatedEdges.clear();
+  selSortCol = null; selSortDir = 1;
+  document.getElementById('selSearch').value = '';
+  document.getElementById('selectionTable').innerHTML = '';
+  document.getElementById('selNumFilters').innerHTML = '';
+  document.getElementById('selNumFilters').dataset.built = '';
+
+  buildLegend();
+  buildSelectionTable();
+  applyConfig();
+  updateEdgeOpacity();
+  toggleCircles();
+  // New nodes have no coordinates; re-run physics so the layout is spread
+  // instead of vis-network's default circle, then switch physics back off.
+  network.once('stabilizationIterationsDone', () => {
+    network.setOptions({ physics: false });
+    network.fit({ animation: false });
+  });
+  network.setOptions({ physics: { enabled: true } });
+  network.stabilize(200);
+}
+
+// ----- Export image (SVG vector or PNG at fixed ×6) -----
+const PNG_SCALE = 6;
+
+function setFormat(fmt) {
+  document.querySelectorAll('#fmtSeg .seg-btn').forEach(b => b.classList.toggle('active', b.dataset.fmt === fmt));
+  document.getElementById('downloadImageBtn').lastChild.textContent = fmt === 'png' ? 'Download PNG' : 'Download SVG';
+}
+
+function exportImage() {
+  const active = document.querySelector('#fmtSeg .seg-btn.active');
+  if (active && active.dataset.fmt === 'png') exportPNG();
+  else exportSVGVector();
+}
+
+function exportPNG() {
+  // Build vector SVG (sharp) then render to canvas → PNG
+  const svgStr = buildVectorSVGString(true);
+  const scale = PNG_SCALE;
+  const img = new Image();
+  img.onload = function() {
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width * scale;
+    canvas.height = img.height * scale;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(function(blob) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${NETWORK_TYPE}_${new Date().toISOString().slice(0,10)}.png`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 'image/png');
+  };
+  img.onerror = function() { alert('PNG export failed — SVG render error'); };
+  img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgStr)));
+}
+
+
+
+function escapeXml(s) {
+  return String(s).replace(/[<>&'"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'}[c]));
+}
+
+// Tooltip lines look like "Lipid: DG 36:2<br>Group: ...". Parse them into
+// fields so the download keeps every value the network can show.
+function titleFields(title) {
+  const out = {};
+  String(title || '').split(/<br\s*\/?>/i).forEach(line => {
+    const i = line.indexOf(':');
+    if (i <= 0) return;
+    const key = line.slice(0, i).trim();
+    if (key) out[key] = line.slice(i + 1).trim();
+  });
+  return out;
+}
+
+function csvCell(v) {
+  if (v === null || v === undefined) return '';
+  v = String(v);
+  return /[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+}
+
+function csvRow(vals) {
+  return vals.map(csvCell).join(',') + '\r\n';
+}
+
+function buildDownloadCsv() {
+  const lines = [];
+  const meta = Object.assign({}, EXTRA.meta || {}, {
+    title: (document.getElementById('figTitle') || {}).textContent || '',
+    network_type: NETWORK_TYPE,
+    node_count: NODES.length,
+    edge_count: EDGES.length,
+  });
+  if (CURRENT_MODE) meta.lipid_mode = CURRENT_MODE;
+
+  lines.push('# Metadata\r\n', csvRow(['key', 'value']));
+  Object.keys(meta).forEach(k => lines.push(csvRow([k, meta[k]])));
+  lines.push('\r\n');
+
+  const section = (name, items, baseCols, idKey) => {
+    const keys = [];
+    items.forEach(it => Object.keys(titleFields(it.title)).forEach(k => {
+      if (!keys.includes(k)) keys.push(k);
+    }));
+    lines.push(`# ${name} (${items.length})\r\n`);
+    lines.push(csvRow(baseCols.concat(keys)));
+    items.forEach(it => {
+      const f = titleFields(it.title);
+      lines.push(csvRow(baseCols.map(c => it[c]).concat(keys.map(k => f[k]))));
+    });
+    lines.push('\r\n');
+  };
+
+  section('Nodes', NODES, ['id', 'label', 'shape', 'color', 'size']);
+  section('Edges', EDGES, ['id', 'from', 'to', 'label', 'color', 'width', 'arrows']);
+
+  if (EXTRA.rows && EXTRA.rows.length) {
+    const label = NETWORK_TYPE === 'pathway' ? 'Reaction chains' : 'Reactions';
+    lines.push(`# ${label} (${EXTRA.rows.length})\r\n`);
+    lines.push(csvRow(EXTRA.columns));
+    EXTRA.rows.forEach(r => lines.push(csvRow(EXTRA.columns.map(c => r[c]))));
+  }
+  return lines.join('');
+}
+
+function downloadTable() {
+  const csv = buildDownloadCsv();
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${NETWORK_TYPE}${CURRENT_MODE ? '_' + CURRENT_MODE : ''}_table_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function buildVectorSVGString(includeLegend) {
+  const positions = network.getPositions();
+  const nodesDS = network.body.data.nodes;
+  const edgesDS = network.body.data.edges;
+  const visibleIds = new Set(nodesDS.get().filter(n => !n.hidden).map(n => n.id));
+  let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+  Object.entries(positions).forEach(([id, p]) => {
+    if (!visibleIds.has(id)) return;
+    if (p.x < minX) minX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y > maxY) maxY = p.y;
+  });
+  if (!isFinite(minX)) { minX = 0; minY = 0; maxX = 100; maxY = 100; }
+  const pad = 80;
+  const contentW = (maxX - minX) + 2*pad;
+  const contentH = (maxY - minY) + 2*pad;
+  const vbX = minX - pad, vbY = minY - pad, vbW = contentW, vbH = contentH;
+  const outW = parseInt(document.getElementById('netWidth').value) || 1400;
+  const outH = parseInt(document.getElementById('netHeight').value) || 900;
+  const legScale = outW / contentW; // rendered px per viewBox unit
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vbX} ${vbY} ${vbW} ${vbH}" width="${outW}" height="${outH}">`;
+  svg += `<style>text { font-family: sans-serif; }</style>`;
+  const fs = parseInt(document.getElementById('fontSize').value) || 14;
+  const efs = Math.max(7, fs - 3);
+  // Edges with Bezier curves
+  edgesDS.forEach(edge => {
+    if (edge.hidden) return;
+    const from = positions[edge.from], to = positions[edge.to];
+    if (!from || !to) return;
+    const color = edge.color || '#888';
+    const width = Math.max(0.5, edge.width || 1);
+    const hasArrow = edge.arrows && edge.arrows.to && edge.arrows.to.enabled;
+    const dx = to.x - from.x, dy = to.y - from.y;
+    const len = Math.sqrt(dx*dx + dy*dy) || 1;
+    const offset = len * 0.15;
+    const perpX = -dy/len * offset, perpY = dx/len * offset;
+    const ctrlX = (from.x + to.x)/2 + perpX, ctrlY = (from.y + to.y)/2 + perpY;
+    svg += `<path d="M ${from.x} ${from.y} Q ${ctrlX} ${ctrlY} ${to.x} ${to.y}" stroke="${color}" stroke-width="${width}" fill="none" />`;
+    // Arrow at node edge
+    if (hasArrow) {
+      const targetNode = nodesDS.get(edge.to);
+      const targetSize = targetNode ? Math.max(3, targetNode.size || 15) : 15;
+      const tanX = to.x - ctrlX, tanY = to.y - ctrlY;
+      const tanLen = Math.sqrt(tanX*tanX + tanY*tanY) || 1;
+      const ux = tanX/tanLen, uy = tanY/tanLen;
+      const tipX = to.x - ux*targetSize, tipY = to.y - uy*targetSize;
+      const asize = 6 + width * 1.5;
+      const bx = tipX - ux*asize, by = tipY - uy*asize;
+      const px = -uy*asize/2, py = ux*asize/2;
+      svg += `<polygon points="${tipX},${tipY} ${bx+px},${by+py} ${bx-px},${by-py}" fill="${color}" />`;
+    }
+    if (edge.label) {
+      const lx = 0.25*from.x + 0.5*ctrlX + 0.25*to.x;
+      const ly = 0.25*from.y + 0.5*ctrlY + 0.25*to.y;
+      svg += `<text x="${lx}" y="${ly-3}" font-size="${efs}" text-anchor="middle" fill="#333">${escapeXml(edge.label)}</text>`;
+    }
+  });
+  // Nodes
+  nodesDS.forEach(node => {
+    const pos = positions[node.id];
+    if (!pos || node.hidden) return;
+    const color = node.color || '#ccc';
+    const size = Math.max(3, node.size || 15);
+    if (node._isClass || node.shape === 'square') {
+      svg += `<rect x="${pos.x-size}" y="${pos.y-size}" width="${size*2}" height="${size*2}" fill="${color}" stroke="#333" stroke-width="1" rx="2" />`;
+      const pv = classPValue(node.title);
+      if (pv) {
+        const pfs = Math.max(8, Math.min(12, size * 0.34)).toFixed(1);
+        svg += `<text x="${pos.x}" y="${pos.y + pfs * 0.35}" font-size="${pfs}" font-weight="600" text-anchor="middle" fill="#213042">${escapeXml(pv)}</text>`;
+      }
+    } else {
+      svg += `<circle cx="${pos.x}" cy="${pos.y}" r="${size}" fill="${color}" stroke="#333" stroke-width="1" />`;
+    }
+    if (node.label) {
+      svg += `<text x="${pos.x}" y="${pos.y + size + 12}" font-size="${(node.font && node.font.size) || 12}" text-anchor="middle">${escapeXml(node.label)}</text>`;
+    }
+  });
+  if (includeLegend) {
+  // Legend mirroring the on-screen HTML one: same px metrics (pad 6/10, line-height 1.6, swatch 14, gap 6)
+  const legendFs = parseInt(document.getElementById('legendFontSize').value) || 11;
+  const entries = getLegendItems();
+  const px = v => v / legScale; // screen px -> viewBox units
+  const boxW = document.getElementById('legend').getBoundingClientRect().width || 180;
+  const legendX = vbX + vbW - px(boxW) - px(9); // legend right:10px minus 1px canvas border
+  const legendY = vbY + px(9);                  // legend top:10px minus 1px canvas border
+  const lh = legendFs * 1.6;
+  const hh = (legendFs - 1) * 1.6;
+  const X = 10; // box horizontal padding
+  let yy = 6;   // box vertical padding
+  let content = '';
+  const text = (tx, cy, s, size, bold) => {
+    content += `<text x="${legendX + px(tx)}" y="${legendY + px(cy + size*0.35)}" font-size="${px(size)}" ${bold ? 'font-weight="bold" ' : ''}text-anchor="start" fill="#333">${escapeXml(s)}</text>`;
+  };
+  entries.forEach(it => {
+    if (it.t === 'header') {
+      text(X, yy + hh/2, it.label, legendFs - 1, true);
+      yy += hh + 2;
+    } else if (it.t === 'section') {
+      yy += 4;
+      content += `<line x1="${legendX + px(X)}" y1="${legendY + px(yy)}" x2="${legendX + px(boxW - X)}" y2="${legendY + px(yy)}" stroke="#ddd" stroke-width="${px(1)}" />`;
+      yy += 4;
+      text(X, yy + hh/2, it.label, legendFs - 1, true);
+      yy += hh + 2;
+    } else if (it.t === 'swatch') {
+      yy += 2; const cy = yy + lh/2;
+      if (it.shape === 'circle') {
+        content += `<circle cx="${legendX + px(X + 7)}" cy="${legendY + px(cy)}" r="${px(7)}" fill="${it.color}" stroke="#333" stroke-width="${px(1)}" />`;
+      } else {
+        content += `<rect x="${legendX + px(X)}" y="${legendY + px(cy - 7)}" width="${px(14)}" height="${px(14)}" fill="${it.color}" stroke="#333" stroke-width="${px(1)}" />`;
+      }
+      text(X + 20, cy, it.label, legendFs, false);
+      yy += lh + 2;
+    } else if (it.t === 'arrow') {
+      yy += 2; const cy = yy + lh/2;
+      content += `<line x1="${legendX + px(X)}" y1="${legendY + px(cy)}" x2="${legendX + px(X + 20)}" y2="${legendY + px(cy)}" stroke="${it.color}" stroke-width="${px(2)}" />`;
+      content += `<polygon points="${legendX + px(X + 24)},${legendY + px(cy)} ${legendX + px(X + 18)},${legendY + px(cy - 4)} ${legendX + px(X + 18)},${legendY + px(cy + 4)}" fill="${it.color}" />`;
+      text(X + 30, cy, it.label, legendFs, false);
+      yy += lh + 2;
+    } else if (it.t === 'line') {
+      yy += 2; const cy = yy + lh/2;
+      content += `<line x1="${legendX + px(X)}" y1="${legendY + px(cy)}" x2="${legendX + px(X + 24)}" y2="${legendY + px(cy)}" stroke="${it.color}" stroke-width="${px(2)}" />`;
+      text(X + 30, cy, it.label, legendFs, false);
+      yy += lh + 2;
+    } else if (it.t === 'heatmap') {
+      yy += 4;
+      text(X, yy + 8, it.label, 10, false);
+      yy += 17;
+      const stops = it.stops || [it.low, it.mid, it.high];
+      const cy = yy + 7, barW = 60, downOff = 34, barX = X + downOff, upX = barX + barW + 4;
+      text(X, cy, 'Down', 9, false);
+      const gid = 'lg' + it.label.replace(/\W/g, '');
+      content += `<linearGradient id="${gid}" x1="0" y1="0" x2="1" y2="0">` + stops.map((c, i) => `<stop offset="${(i / (stops.length - 1)).toFixed(3)}" stop-color="${c}" />`).join('') + `</linearGradient>`;
+      content += `<rect x="${legendX + px(barX)}" y="${legendY + px(cy - 5)}" width="${px(barW)}" height="${px(10)}" fill="url(#${gid})" stroke="#333" stroke-width="${px(1)}" />`;
+      text(upX, cy, 'Up', 9, false);
+      yy += 15;
+    }
+  });
+  svg += `<rect x="${legendX}" y="${legendY}" width="${px(boxW)}" height="${px(yy + 6)}" fill="rgba(255,255,255,0.95)" stroke="#999" stroke-width="${px(1)}" rx="${px(4)}" />`;
+  svg += content;
+
+  }
+svg += `</svg>`;
+  return svg;
+}
+
+function exportSVGVector() {
+  const svgStr = buildVectorSVGString(true);
+  const blob = new Blob([svgStr], { type: 'image/svg+xml' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${NETWORK_TYPE}_${new Date().toISOString().slice(0,10)}_vector.svg`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+
+
+function legendSwatch(shape, color, label) {
+  const s = shape === 'square' ? 'border-radius:0' : (shape === 'circle' ? 'border-radius:50%' : 'border-radius:0');
+  return `<div style="display:flex;align-items:center;gap:6px;margin:2px 0;"><span style="display:inline-block;width:14px;height:14px;background:${color};border:1px solid #333;${s};flex-shrink:0;"></span> <span>${label}</span></div>`;
+}
+// Node color ramp used by GATOM (LipidSigR .gatomNodeColor: #4169E1 -> #CCEEFF / #FFE4E1 -> #FF4500).
+const LOG2FC_RAMP = ['#4169E1', '#CCEEFF', '#CCCCCC', '#FFE4E1', '#FF4500'];
+// Edge colors produced by LipidSigR, in display order. Colors absent from EDGES are hidden
+// so the legend never advertises a color the viewer does not render.
+const EDGE_LEGEND = {
+  pathway: [
+    ['#FF4500', 'Activated (z > 1.645)'],
+    ['#FFD2D2', 'Weakly activated (0 < z \u2264 1.645)'],
+    ['#DDDDFF', 'Weakly suppressed (\u22121.645 \u2264 z < 0)'],
+    ['#4169E1', 'Suppressed (z < \u22121.645)'],
+    ['#666666', 'No change (z = 0)'],
+  ],
+  gatom: [
+    ['#FF4500', 'Up in DE (log2FC > 0)'],
+    ['#4169E1', 'Down in DE (log2FC < 0)'],
+    ['#DDDDDD', 'No DE gene mapped'],
+  ],
+  lipid_reaction: [
+    ['#FF8800', 'Biochemical reaction (enzyme)'],
+    ['#DDDDDD', 'Class \u2192 species link'],
+  ],
+};
+
+function edgeLegendItems() {
+  const defs = EDGE_LEGEND[NETWORK_TYPE] || [];
+  const present = new Set(EDGES.map(e => String(e.color || '').toUpperCase()));
+  const known = new Set(defs.map(([c]) => c.toUpperCase()));
+  const items = defs.filter(([c]) => present.has(c.toUpperCase()));
+  present.forEach(c => { if (c && !known.has(c)) items.push([c, `Other (${c})`]); });
+  return items;
+}
+
+function legendArrow(color, label) {
+  return `<div style="display:flex;align-items:center;gap:6px;margin:2px 0;"><span style="display:inline-block;width:20px;height:0;border-top:2px solid ${color};position:relative;flex-shrink:0;"></span><span style="display:inline-block;width:0;height:0;border:4px solid transparent;border-left:6px solid ${color};margin-left:-2px;"></span> <span>${label}</span></div>`;
+}
+function legendLine(color, label) {
+  return `<div style="display:flex;align-items:center;gap:6px;margin:2px 0;"><span style="display:inline-block;width:24px;height:0;border-top:2px solid ${color};flex-shrink:0;"></span> <span>${label}</span></div>`;
+}
+function legendHeatmap(label, stops) {
+  return `<div style="margin:4px 0;"><div style="font-size:10px;margin-bottom:1px;">${label}</div><div style="display:flex;align-items:center;gap:4px;"><span style="font-size:9px;">Down</span><span style="display:inline-block;width:60px;height:10px;background:linear-gradient(to right,${stops.join(',')});border:1px solid #333;"></span><span style="font-size:9px;">Up</span></div></div>`;
+}
+
+function buildLegend() {
+  const lc = document.getElementById('legendContent');
+  const head = (label) => `<div style="font-weight:bold;font-size:10px;margin-bottom:2px;">${label}</div>`;
+  const sec = (label) => `<div style="margin-top:4px;border-top:1px solid #ddd;padding-top:3px;font-weight:bold;font-size:10px;">${label}</div>`;
+  let html = '';
+  if (NETWORK_TYPE === 'gatom') {
+    html = head('Nodes')
+        + legendHeatmap('log2FC', LOG2FC_RAMP)
+        + sec('Edges')
+        + edgeLegendItems().map(([c, l]) => legendArrow(c, l)).join('');
+  } else if (NETWORK_TYPE === 'lipid_reaction') {
+    html = head('Nodes')
+        + legendSwatch('square', '#CCCCCC', 'Lipid class')
+        + legendSwatch('circle', '#CCCCCC', 'Lipid species')
+        + sec('Edges')
+        + edgeLegendItems().map(([c, l]) => c.toUpperCase() === '#DDDDDD' ? legendLine(c, l) : legendArrow(c, l)).join('')
+        + sec('Color scale')
+        + legendHeatmap('Class log2FC', ['#6A5ACD', '#CCCCFF', '#CCCCCC', '#FFFACD', '#FFD700'])
+        + legendHeatmap('Species log2FC', ['#4169E1', '#CCEEFF', '#CCCCCC', '#FFE4E1', '#FF4500']);
+  } else if (NETWORK_TYPE === 'pathway') {
+    html = head('Nodes')
+        + legendSwatch('circle', '#DDDDDD', 'Lipid class')
+        + sec('Edges (pathway score z)')
+        + edgeLegendItems().map(([c, l]) => legendArrow(c, l)).join('');
+  }
+  lc.innerHTML = html;
+}
+
+// Legend entries matching buildLegend() on screen: header / section divider / swatch / arrow / heatmap,
+// with the exact same labels the HTML legend displays.
+function getLegendItems() {
+  const items = [];
+  if (NETWORK_TYPE === 'gatom') {
+    items.push({t:'header', label:'Nodes'});
+    items.push({t:'heatmap', label:'log2FC', stops: LOG2FC_RAMP});
+    items.push({t:'section', label:'Edges'});
+    edgeLegendItems().forEach(([color, label]) => items.push({t:'arrow', color, label}));
+  } else if (NETWORK_TYPE === 'lipid_reaction') {
+    items.push({t:'header', label:'Nodes'});
+    items.push({t:'swatch', shape:'square', color:'#CCCCCC', label:'Lipid class'});
+    items.push({t:'swatch', shape:'circle', color:'#CCCCCC', label:'Lipid species'});
+    items.push({t:'section', label:'Edges'});
+    edgeLegendItems().forEach(([color, label]) => items.push({t: color.toUpperCase() === '#DDDDDD' ? 'line' : 'arrow', color, label}));
+    items.push({t:'section', label:'Color scale'});
+    items.push({t:'heatmap', label:'Class log2FC', stops: ['#6A5ACD', '#CCCCFF', '#CCCCCC', '#FFFACD', '#FFD700']});
+    items.push({t:'heatmap', label:'Species log2FC', stops: ['#4169E1', '#CCEEFF', '#CCCCCC', '#FFE4E1', '#FF4500']});
+  } else if (NETWORK_TYPE === 'pathway') {
+    items.push({t:'header', label:'Nodes'});
+    items.push({t:'swatch', shape:'circle', color:'#DDDDDD', label:'Lipid class'});
+    items.push({t:'section', label:'Edges (pathway score z)'});
+    edgeLegendItems().forEach(([color, label]) => items.push({t:'arrow', color, label}));
+  }
+  return items;
+}
+
+function updateLegendFont() {
+  const fs = document.getElementById('legendFontSize').value;
+  document.getElementById('legendContent').style.fontSize = fs + 'px';
+  document.getElementById('legendFontSizeVal').textContent = fs;
+}
+
+// Legend is fixed at top-right (no dragging)
+
+// Init
+buildLegend();
+buildSelectionTable();
+updateEdgeOpacity();
+fitNetwork();
+let fitTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(fitTimer);
+  fitTimer = setTimeout(fitNetwork, 120);
+});
+</script>
+</body>
+</html>

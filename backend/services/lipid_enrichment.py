@@ -263,6 +263,7 @@ def run_ttest_enrichment_lipid(project_id, uid, settings, run_id=None, task_id=N
 
         else:  # LSEA
             rank_rows = []
+            rank_meta: dict[str, dict] = {}
             for f in anno["Input.Name"]:
                 st = feature_stats[f]
                 logfc = _safe_float(st["LogFC"])
@@ -274,26 +275,48 @@ def run_ttest_enrichment_lipid(project_id, uid, settings, run_id=None, task_id=N
                 else:
                     score = float(logfc)
                 rank_rows.append((f, score))
+                rank_meta[f] = {"LogFC": logfc, "FDR": fdr}
             if len(rank_rows) < 10:
                 raise ValueError("Too few ranked lipids with log2FC for LSEA.")
             rank_df = pd.DataFrame(rank_rows, columns=["Feature", "Rank"])
             rank_df = rank_df.sort_values("Rank", ascending=False).reset_index(drop=True)
             ranked_features = rank_df["Feature"].tolist()
+            ranking_preview = [
+                {
+                    "Feature": feature,
+                    "Rank": float(rank),
+                    "LogFC": rank_meta[feature]["LogFC"],
+                    "FDR": rank_meta[feature]["FDR"],
+                    "RankIndex": idx + 1,
+                }
+                for idx, (feature, rank) in enumerate(zip(rank_df["Feature"], rank_df["Rank"]))
+            ]
 
+            skipped_characteristics = []
             for char_key in characteristics:
                 database = f"LIPID::{char_key}"
                 sets = _build_sets(anno, char_key, min_size=n_lipid)
                 if not sets:
+                    skipped_characteristics.append(char_key)
                     continue
-                pre_res = gp.prerank(
-                    rnk=rank_df,
-                    gene_sets=sets,
-                    processes=4,
-                    permutation_num=1000,
-                    outdir=None,
-                    seed=42,
-                    verbose=False,
-                )
+                try:
+                    pre_res = gp.prerank(
+                        rnk=rank_df,
+                        gene_sets=sets,
+                        # gseapy defaults to min_size=15, which silently drops
+                        # LipidSigR's small characteristic sets and raises
+                        # LookupError when a whole characteristic falls below it.
+                        min_size=n_lipid,
+                        max_size=500,
+                        processes=4,
+                        permutation_num=1000,
+                        outdir=None,
+                        seed=42,
+                        verbose=False,
+                    )
+                except LookupError:
+                    skipped_characteristics.append(char_key)
+                    continue
                 result_df = pre_res.res2d.copy().reset_index(drop=True)
                 if result_df.empty:
                     continue
@@ -312,7 +335,11 @@ def run_ttest_enrichment_lipid(project_id, uid, settings, run_id=None, task_id=N
                     term_details[table_record["term_id"]] = detail_payload
 
             if not result_records:
-                raise ValueError("No LSEA result returned (sets may be too small; lower n_lipid).")
+                raise ValueError(
+                    "No LSEA result returned. Characteristics skipped (no ranked set reached n_lipid="
+                    f"{n_lipid}): {', '.join(skipped_characteristics) or 'none'}. "
+                    "Try fewer characteristics or a lower n_lipid."
+                )
 
             result_table = (
                 pd.DataFrame(result_records)
@@ -337,8 +364,10 @@ def run_ttest_enrichment_lipid(project_id, uid, settings, run_id=None, task_id=N
             "input_type": "Lipid",
             "rank_by": rank_by if method == "LSEA" else None,
             "databases": databases,
+            "skipped_characteristics": skipped_characteristics if method == "LSEA" else [],
             "results_table": make_json_safe(result_table.to_dict(orient="records")),
             "term_details": make_json_safe(term_details),
+            "ranking_preview": make_json_safe(ranking_preview) if method == "LSEA" else [],
             "network": make_json_safe(network_payload),
         }
 

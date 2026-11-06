@@ -1,5 +1,5 @@
 /* =========================================
-   Inter font (dashboard-inspired)
+   Inter font
    ========================================= */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
@@ -1304,7 +1304,7 @@ html:has(body.analysis-page) { overflow: hidden; }
 .pc-variance { font-size: 0.69rem; color: #6c757d; }
 
 /* =====================================================================
-   SCIENTIFIC UI DESIGN SYSTEM (data-analysis application style)
+   SCIENTIFIC UI DESIGN SYSTEM
    Appended override layer — restyles the global aesthetic across all
    pages without altering existing class names or component behavior.
    Restrained palette: blue accent, gray/white/black, flat + subtle.

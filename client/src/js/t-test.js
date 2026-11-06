@@ -5,7 +5,7 @@ import { mountTerminalWidget } from "./terminal-widget.js";
 import { sortMetadataLabels } from "./meta-label-utils.js";
 import { mountPlotConfigPanel, PLOT_CONFIG_DEFAULTS } from "./plot-config-panel.js";
 import { onAuthStateChanged } from "./firebase-config.js";
-import { doc, getDoc, updateDoc, onSnapshot } from "./firebase-config.js";
+import { doc, getDoc, updateDoc, onSnapshot, getToken } from "./firebase-config.js";
 import { ref, getDownloadURL, uploadString } from "./firebase-config.js";
 import { vpsUrl, RUN_SUBMIT_COOLDOWN_MS, TASK_STALE_TIMEOUT_MS } from "./auth-gate.js";
 
@@ -32,15 +32,18 @@ let selectedLipids = new Set();
 const volcanoLabelPositions = new Map(); // lipid → { ax, ay } in data coords — persists dragged label positions
 let analysisHistory = [];
 let enrichmentHistory = [];
+let networkHistory = [];
 let currentRunId = null;
 let currentCsvUrl = null;
 let selectedHistoryRunId = null;
 let selectedEnrichmentRunId = null;
+let selectedNetworkRunId = null;
 let currentResultsUrl = null;
 let violinDataCache = new Map();
 let currentAnalysisContext = { target: null, comparison: null, displayTarget: null, displayComparison: null, displayGroupMap: null, metaPathOverride: null };
 let currentViolinRequestId = 0;
 let enrichmentModal = null;
+let networkModal = null;
 let staleAnalysisRunId = null;
 let runCooldownUntil = 0;
 let runCooldownTimer = null;
@@ -127,8 +130,10 @@ const dom = {
     resultsContainer: () => document.getElementById("results-container"),
     resultTabOverview: () => document.getElementById("result-tab-overview"),
     resultTabEnrichment: () => document.getElementById("result-tab-enrichment"),
+    resultTabNetwork: () => document.getElementById("result-tab-network"),
     overviewPanel: () => document.getElementById("overview-panel"),
     enrichmentPanel: () => document.getElementById("enrichment-panel"),
+    networkPanel: () => document.getElementById("network-panel"),
     analysisCompareChip: () => document.getElementById("analysis-compare-chip"),
     enrichmentCurrentComparison: () => document.getElementById("enrichment-current-comparison"),
     enrichmentCurrentAnalysis: () => document.getElementById("enrichment-current-analysis"),
@@ -163,6 +168,23 @@ const dom = {
     enrichmentInlineTitle: () => document.getElementById("enrichment-inline-title"),
     enrichmentInlineLoading: () => document.getElementById("enrichment-inline-loading"),
     enrichmentBackBtn: () => document.getElementById("btn-enrichment-back"),
+    networkCurrentComparison: () => document.getElementById("network-current-comparison"),
+    networkCurrentAnalysis: () => document.getElementById("network-current-analysis"),
+    networkHistorySearch: () => document.getElementById("network-history-search"),
+    networkHistoryList: () => document.getElementById("network-history-list"),
+    openNetworkModalBtn: () => document.getElementById("btn-open-network-modal"),
+    networkModalEl: () => document.getElementById("run-network-modal"),
+    networkType: () => document.getElementById("network-type"),
+    networkOrganism: () => document.getElementById("network-organism"),
+    networkRefGroup: () => document.getElementById("network-ref-group"),
+    networkName: () => document.getElementById("network-name"),
+    networkNLipidCol: () => document.getElementById("network-n-lipid-col"),
+    networkNLipid: () => document.getElementById("network-n-lipid"),
+    networkPCutoff: () => document.getElementById("network-p-cutoff"),
+    networkFcCutoff: () => document.getElementById("network-fc-cutoff"),
+    networkModalSource: () => document.getElementById("network-modal-source"),
+    networkModalError: () => document.getElementById("network-modal-error"),
+    runNetworkBtn: () => document.getElementById("btn-run-network"),
     sidebarPlaceholder: () => document.getElementById("sidebar-placeholder"),
     tableBody: () => document.querySelector("#res-table tbody"),
     volcano: () => document.getElementById("volcano-plot"),
@@ -1051,6 +1073,7 @@ function setResultsLoading(message) {
     setActiveResultsTab("overview");
     selectedLipids.clear();
     selectedEnrichmentRunId = null;
+    selectedNetworkRunId = null;
     currentCsvUrl = null;
     currentResultsUrl = null;
     dom.rowCount().innerText = "Loading...";
@@ -1235,6 +1258,7 @@ async function refreshAnalysisStateFromSnapshot(nextData) {
 
     const historyChanged = JSON.stringify(nextData.ttest_history || []) !== JSON.stringify(projectData.ttest_history || []);
     const enrichmentChanged = JSON.stringify(nextData.ttest_enrichment_history || []) !== JSON.stringify(projectData.ttest_enrichment_history || []);
+    const networkChanged = JSON.stringify(nextData.network_history || []) !== JSON.stringify(projectData.network_history || []);
     if (historyChanged) {
         analysisHistory = deduplicateHistory(nextData.ttest_history || []);
         renderAnalysisHistoryPopup();
@@ -1245,15 +1269,23 @@ async function refreshAnalysisStateFromSnapshot(nextData) {
         renderEnrichmentHistory();
     }
 
+    if (networkChanged) {
+        networkHistory = deduplicateEnrichmentHistory(nextData.network_history || []);
+        renderNetworkHistory();
+    }
+
     projectData = {
         ...projectData,
         ...nextData,
         ttest_enrichment_history: enrichmentHistory,
         ttest_enrichment_task: nextData.ttest_enrichment_task || null,
+        network_history: networkHistory,
+        network_task: nextData.network_task || null,
     };
 
     await syncRunTaskState(nextData.ttest_task || null);
     syncEnrichmentTaskState(nextData.ttest_enrichment_task || null);
+    syncNetworkTaskState(nextData.network_task || null);
 }
 
 function scrollToLipidRow(lipid) {
@@ -1274,15 +1306,18 @@ async function initUnivariateSetup() {
     if (window.renderNormSummary) window.renderNormSummary(projectData.norm_settings, projectData.normality_stat);
     analysisHistory = deduplicateHistory(projectData.ttest_history || []);
     enrichmentHistory = deduplicateEnrichmentHistory(projectData.ttest_enrichment_history || []);
+    networkHistory = deduplicateEnrichmentHistory(projectData.network_history || []);
 
     renderAnalysisHistoryPopup();
     renderEnrichmentHistory();
+    renderNetworkHistory();
     dom.normalityInfo().innerHTML = "Normality is evaluated per feature. Unpaired mode tests each group separately; paired mode tests within-pair differences.";
 
     populateTargetMeta();
     populatePairIdColumns();
     bindEvents();
     initEnrichmentModal();
+    initNetworkModal();
     try {
         await syncSplitEngineMetadata();
     } catch (error) {
@@ -1408,9 +1443,13 @@ function bindEvents() {
     };
     dom.resultTabOverview().onclick = () => setActiveResultsTab("overview");
     dom.resultTabEnrichment().onclick = () => setActiveResultsTab("enrichment");
+    dom.resultTabNetwork().onclick = () => setActiveResultsTab("network");
     dom.enrichmentHistorySearch().oninput = renderEnrichmentHistory;
+    dom.networkHistorySearch().oninput = renderNetworkHistory;
     dom.openEnrichmentModalBtn().onclick = openEnrichmentModal;
+    dom.openNetworkModalBtn().onclick = openNetworkModal;
     dom.runEnrichmentBtn().onclick = runEnrichmentAnalysis;
+    dom.runNetworkBtn().onclick = runNetworkAnalysis;
     dom.enrichmentBackBtn().onclick = closeInlineEnrichmentView;
 
     window.addEventListener("message", (event) => {
@@ -1599,6 +1638,7 @@ function buildProjectStateFromHistory() {
 function clearLoadedAnalysis() {
     selectedHistoryRunId = null;
     selectedEnrichmentRunId = null;
+    selectedNetworkRunId = null;
     currentCsvUrl = null;
     uniResultsGlobal = [];
     selectedLipids.clear();
@@ -1606,6 +1646,7 @@ function clearLoadedAnalysis() {
     renderViolinEmpty("Load an analysis result first, then select features.");
     setAnalysisContext(null, null);
     renderEnrichmentHistory();
+    renderNetworkHistory();
     dom.volcano().innerHTML = "";
     dom.resultsContainer().classList.add("d-none");
     currentResultsUrl = null;
@@ -1962,7 +2003,9 @@ function updateAnalysisSummary() {
         : "No DEA loaded";
     dom.analysisCompareChip().textContent = comparisonText;
     dom.enrichmentCurrentComparison().textContent = comparisonText;
+    dom.networkCurrentComparison().textContent = comparisonText;
     dom.enrichmentCurrentAnalysis().textContent = analysis ? `${analysis.name || "Untitled"}${analysis.paired ? ` | Paired by ${analysis.pair_id_col || "-"}` : " | Unpaired"}` : "Load a DEA result from history or run a new one.";
+    dom.networkCurrentAnalysis().textContent = dom.enrichmentCurrentAnalysis().textContent;
     updateEnrichmentAvailability();
 }
 
@@ -1975,17 +2018,22 @@ function updateEnrichmentAvailability() {
     dom.resultTabEnrichment().disabled = !enabled;
     dom.resultTabEnrichment().classList.toggle("disabled", !enabled);
     dom.openEnrichmentModalBtn().disabled = !enabled;
+    dom.resultTabNetwork().disabled = !enabled;
+    dom.resultTabNetwork().classList.toggle("disabled", !enabled);
+    dom.openNetworkModalBtn().disabled = !enabled;
 }
 
 function setActiveResultsTab(tabName) {
-    if (tabName === "enrichment" && !hasLoadedAnalysisResults()) {
+    if (tabName !== "overview" && !hasLoadedAnalysisResults()) {
         return;
     }
-    const enrichmentActive = tabName === "enrichment";
-    dom.resultTabOverview().classList.toggle("active", !enrichmentActive);
-    dom.resultTabEnrichment().classList.toggle("active", enrichmentActive);
-    dom.overviewPanel().classList.toggle("d-none", enrichmentActive);
-    dom.enrichmentPanel().classList.toggle("d-none", !enrichmentActive);
+    if (!["overview", "enrichment", "network"].includes(tabName)) tabName = "overview";
+    dom.resultTabOverview().classList.toggle("active", tabName === "overview");
+    dom.resultTabEnrichment().classList.toggle("active", tabName === "enrichment");
+    dom.resultTabNetwork().classList.toggle("active", tabName === "network");
+    dom.overviewPanel().classList.toggle("d-none", tabName !== "overview");
+    dom.enrichmentPanel().classList.toggle("d-none", tabName !== "enrichment");
+    dom.networkPanel().classList.toggle("d-none", tabName !== "network");
 }
 
 function getCurrentAnalysisEntry() {
@@ -2277,7 +2325,7 @@ async function runLipidMappingPreflight() {
             note.innerHTML = `<div class="alert alert-danger small mb-0">
                 <i class="fa-solid fa-triangle-exclamation me-2"></i>
                 Only <b>${data.mapped}/${data.total}</b> features (${pct}%) map to lipid IDs — at least 50% is required.
-                Lipid enrichment is blocked. Fix names via the <b>ID Conversion</b> page first.<br>
+                Lipid enrichment is blocked. Fix feature names (lipid names) via the <b>ID Conversion</b> page first.<br>
                 <span class="text-muted">Unmapped examples: ${(data.unmapped_examples || []).slice(0, 10).join(", ")}</span>
             </div>`;
         } else {
@@ -2413,10 +2461,15 @@ function openInlineEnrichmentView(entry) {
 
     // Show loading overlay
     const loading = dom.enrichmentInlineLoading();
-    if (loading) loading.style.display = "flex";
+    if (loading) {
+        loading.style.display = "flex";
+        const label = loading.querySelector(".small");
+        if (label) label.textContent = "Loading enrichment…";
+    }
 
     const frame = dom.enrichmentInlineFrame();
     frame.onload = null;
+    frame.removeAttribute("srcdoc");
     frame.src = url;
 
     // Hide sidebar
@@ -2434,6 +2487,7 @@ function closeInlineEnrichmentView() {
     dom.enrichmentInlineView().classList.remove("open");
     const frame = dom.enrichmentInlineFrame();
     frame.onload = null;
+    frame.removeAttribute("srcdoc");
     frame.src = "";
 
     const loading = dom.enrichmentInlineLoading();
@@ -2694,6 +2748,385 @@ async function runEnrichmentAnalysis() {
     }
 }
 
+function getNetworkTypeLabel(type) {
+    if (type === "gatom") return "GATOM Network";
+    if (type === "lipid_reaction") return "Lipid Reaction Network";
+    return "Pathway Activity Network";
+}
+
+function buildNetworkTaskEntry(task) {
+    if (!task?.run_id) return null;
+    return {
+        run_id: task.run_id,
+        task_id: task.task_id ?? null,
+        title: task.title || "Untitled network",
+        date: task.completed_at || task.started_at || new Date().toISOString(),
+        source_run_id: task.source_run_id || null,
+        target: task.target || null,
+        comparison: task.comparison || null,
+        network_type: task.network_type || "pathway",
+        organism: task.organism || "human",
+        ref_group: task.ref_group || null,
+        node_count: task.node_count || 0,
+        edge_count: task.edge_count || 0,
+        html_url: task.html_url || null,
+        message: task.message || "",
+        status: normalizeEnrichmentStatus(task.status),
+        isTask: true,
+    };
+}
+
+function getCurrentNetworkEntries() {
+    const analysis = getCurrentAnalysisEntry();
+    if (!analysis?.run_id) return [];
+
+    const historyItems = deduplicateEnrichmentHistory(networkHistory)
+        .filter((item) => item.source_run_id === analysis.run_id);
+
+    const taskEntry = buildNetworkTaskEntry(projectData?.network_task || null);
+    if (!taskEntry || taskEntry.source_run_id !== analysis.run_id) {
+        return historyItems;
+    }
+
+    const combined = taskEntry.status === "done"
+        ? [...historyItems, taskEntry]
+        : [taskEntry, ...historyItems];
+
+    return deduplicateEnrichmentHistory(combined);
+}
+
+function syncNetworkTaskState(task) {
+    const entry = buildNetworkTaskEntry(task);
+    if (entry?.run_id) selectedNetworkRunId = entry.run_id;
+    renderNetworkHistory();
+}
+
+function initNetworkModal() {
+    if (window.bootstrap) networkModal = new window.bootstrap.Modal(dom.networkModalEl());
+    const typeSelect = dom.networkType();
+    if (typeSelect) {
+        typeSelect.onchange = () => {
+            const gatom = typeSelect.value === "gatom";
+            dom.networkNLipidCol().classList.toggle("d-none", !gatom);
+        };
+        typeSelect.onchange();
+    }
+}
+
+function fillNetworkRefGroupOptions(analysis) {
+    const select = dom.networkRefGroup();
+    const groups = parseComparisonGroups(analysis?.comparison);
+    if (groups.length !== 2) {
+        select.innerHTML = `<option value="">${escapeHtmlAttr(analysis?.comparison || "No comparison")}</option>`;
+        return;
+    }
+    const map = analysis.display_group_map || {};
+    select.innerHTML = groups
+        .map((group) => `<option value="${escapeHtmlAttr(group)}">${escapeHtmlAttr(map[group] || group)} (reference)</option>`)
+        .join("");
+    // group2 is the reference: the DE table computes log2FC as group1 - group2.
+    select.value = groups[1];
+}
+
+async function openNetworkModal() {
+    const analysis = getCurrentAnalysisEntry();
+    if (!analysis || !uniResultsGlobal.length) {
+        alert("Load a DEA result first.");
+        return;
+    }
+    dom.networkModalError().textContent = "";
+    dom.runNetworkBtn().disabled = false;
+    fillNetworkRefGroupOptions(analysis);
+    dom.networkName().value = `${analysis.name || "DEA"} | ${getNetworkTypeLabel(dom.networkType().value)} ${new Date().toLocaleString()}`;
+    dom.networkModalSource().textContent = `${getAnalysisDisplayTarget(analysis) || "-"} | ${getAnalysisDisplayComparison(analysis) || analysis.comparison || "-"}`;
+    networkModal?.show();
+
+    try {
+        const response = await fetch(`${vpsUrl}/network/availability`);
+        const payload = await response.json();
+        if (!payload.available) {
+            dom.networkModalError().textContent = "R/LipidSigR was not found on this server, so networks cannot run. Set RSCRIPT_PATH on the backend and restart.";
+            dom.runNetworkBtn().disabled = true;
+        }
+    } catch (error) {
+        dom.networkModalError().textContent = error.message || "Unable to check R availability on the server.";
+    }
+}
+
+function openInlineNetworkView(entry) {
+    const titleText = entry.title || entry.run_id || "Network";
+    dom.enrichmentInlineTitle().textContent = titleText;
+
+    const loading = dom.enrichmentInlineLoading();
+    if (loading) {
+        loading.style.display = "flex";
+        const label = loading.querySelector(".small");
+        if (label) label.textContent = "Loading network…";
+    }
+
+    const frame = dom.enrichmentInlineFrame();
+    frame.onload = null;
+    frame.removeAttribute("srcdoc");
+    frame.src = "about:blank";
+
+    const sidebar = dom.sidebarPlaceholder();
+    if (sidebar) sidebar.style.display = "none";
+    dom.enrichmentInlineView().classList.add("open");
+
+    (async () => {
+        try {
+            if (!entry.html_url) throw new Error("This network run has no stored HTML report.");
+            const fullUrl = entry.html_url.startsWith("http") ? entry.html_url : `${vpsUrl}${entry.html_url}`;
+            // The global fetch wrapper skips .html URLs, so send the token here.
+            const headers = {};
+            const token = getToken();
+            if (token) headers["Authorization"] = `Bearer ${token}`;
+            const response = await fetch(fullUrl, { headers });
+            if (!response.ok) throw new Error(`Failed to load the network report (HTTP ${response.status}).`);
+            const html = await response.text();
+            frame.onload = () => {
+                if (loading) loading.style.display = "none";
+            };
+            frame.srcdoc = html;
+        } catch (error) {
+            frame.srcdoc = `<div style="font-family:system-ui,sans-serif;padding:24px;color:#b42318">${escapeHtmlAttr(error.message || "Failed to load the network report.")}</div>`;
+            if (loading) loading.style.display = "none";
+        }
+    })();
+}
+
+function renderNetworkHistory() {
+    const analysis = getCurrentAnalysisEntry();
+    if (!analysis?.run_id) {
+        dom.networkHistoryList().innerHTML = '<div class="enrichment-history-empty">Load a DEA result first to see related network history.</div>';
+        return;
+    }
+    const searchText = (dom.networkHistorySearch().value || "").trim().toLowerCase();
+    const visibleHistory = getCurrentNetworkEntries().filter((item) => {
+        const haystack = [item.title, item.comparison, getNetworkTypeLabel(item.network_type), item.organism, item.status, item.message]
+            .join(" ").toLowerCase();
+        return !searchText || haystack.includes(searchText);
+    });
+
+    if (!visibleHistory.length) {
+        dom.networkHistoryList().innerHTML = '<div class="enrichment-history-empty">No network history for this DEA yet.</div>';
+        return;
+    }
+    dom.networkHistoryList().innerHTML = visibleHistory.map((item) => `
+        <div class="enrichment-history-item ${selectedNetworkRunId === item.run_id ? "active" : ""}" data-run-id="${item.run_id}">
+            <div class="d-flex justify-content-between align-items-start gap-2">
+                <div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <div class="enrichment-history-title">${item.title || "Untitled network"}</div>
+                        ${getEnrichmentStatusBadge(item.status)}
+                    </div>
+                    <div class="enrichment-history-meta">${formatTaskId(item) || "No ID"}</div>
+                    <div class="enrichment-history-meta">${item.comparison || "-"}</div>
+                    <div class="enrichment-history-meta">${getNetworkTypeLabel(item.network_type)} | ${item.organism || "human"}${item.ref_group ? ` | ref ${item.ref_group}` : ""}</div>
+                    <div class="enrichment-history-meta">${item.message || (item.status === "done" ? "Ready to open." : item.status === "running" ? "Network is still running..." : item.status === "pending" ? "Queued for processing..." : "Run failed.")}</div>
+                </div>
+                <div class="text-end d-flex flex-column align-items-end gap-2">
+                    <div class="enrichment-history-meta">${item.date ? new Date(item.date).toLocaleString() : "-"}</div>
+                    <div class="enrichment-history-meta">${item.node_count || 0} nodes | ${item.edge_count || 0} edges</div>
+                    ${canDeleteEnrichmentEntry(item) ? `
+                        <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2 network-history-delete" data-run-id="${item.run_id}" title="Delete this network run">
+                            <i class="fa-solid fa-trash-can me-1"></i>
+                        </button>
+                    ` : ""}
+                </div>
+            </div>
+        </div>
+    `).join("");
+
+    dom.networkHistoryList().querySelectorAll(".enrichment-history-item").forEach((node) => {
+        node.onclick = () => {
+            const runId = node.dataset.runId;
+            const entry = visibleHistory.find((item) => item.run_id === runId);
+            if (!entry) return;
+            selectedNetworkRunId = runId;
+            renderNetworkHistory();
+            if (entry.status === "error") {
+                alert(entry.message || "Network run failed.");
+                return;
+            }
+            if (entry.status !== "done") return;
+            openInlineNetworkView(entry);
+        };
+    });
+
+    dom.networkHistoryList().querySelectorAll(".network-history-delete").forEach((button) => {
+        button.onclick = async (event) => {
+            event.stopPropagation();
+            const runId = button.dataset.runId;
+            const entry = visibleHistory.find((item) => item.run_id === runId);
+            if (!entry) return;
+            if (!confirm(`Delete network run "${entry.title || runId}"?`)) return;
+            await deleteNetworkHistoryEntry(entry);
+        };
+    });
+}
+
+async function deleteNetworkHistoryEntry(entry) {
+    if (!entry?.run_id) return;
+    if (entry.status === "pending" || entry.status === "running") {
+        alert("This network run is still processing and cannot be deleted yet.");
+        return;
+    }
+
+    await deleteStorageArtifacts([entry.html_url]);
+
+    networkHistory = deduplicateEnrichmentHistory(
+        networkHistory.filter((item) => item.run_id !== entry.run_id)
+    );
+
+    const currentTask = projectData?.network_task || null;
+    const nextTask = currentTask?.run_id === entry.run_id ? null : currentTask;
+
+    await updateDoc(doc(db, "projects", projectId), {
+        network_history: networkHistory,
+        network_task: nextTask,
+    });
+
+    projectData = {
+        ...projectData,
+        network_history: networkHistory,
+        network_task: nextTask,
+    };
+
+    if (selectedNetworkRunId === entry.run_id) {
+        selectedNetworkRunId = null;
+    }
+
+    renderNetworkHistory();
+}
+
+async function runNetworkAnalysis() {
+    const analysis = getCurrentAnalysisEntry();
+    if (!analysis?.run_id) {
+        alert("Load a DEA result first.");
+        return;
+    }
+    const networkType = dom.networkType().value;
+    const refGroup = dom.networkRefGroup().value;
+    const runName = dom.networkName().value.trim();
+    const nLipid = Number(dom.networkNLipid().value);
+    const pCutoff = Number(dom.networkPCutoff().value);
+    const fcCutoff = Number(dom.networkFcCutoff().value);
+
+    if (!refGroup) {
+        alert("Select the control (reference) group.");
+        return;
+    }
+    if (!runName) {
+        alert("Please enter a run name.");
+        return;
+    }
+    if (!Number.isInteger(nLipid) || nLipid < 2) {
+        alert("n_lipid must be an integer of at least 2.");
+        return;
+    }
+    if (!(pCutoff > 0 && pCutoff <= 1)) {
+        alert("P cutoff must be greater than 0 and at most 1.");
+        return;
+    }
+    if (!(fcCutoff > 0)) {
+        alert("Fold change cutoff must be greater than 0.");
+        return;
+    }
+    if (networkType !== "pathway" && fcCutoff < 1) {
+        alert("Fold change cutoff must be at least 1 for GATOM and lipid reaction networks.");
+        return;
+    }
+
+    // LipidSigR works on raw positive abundances (class-level means), so prefer
+    // the checked matrix over the log-transformed normalized matrix.
+    const matrixPath = projectData?.matrixCheckedPath || projectData?.matrixPreScalePath || projectData?.matrixNormPath || null;
+    const metaPath = analysis.meta_path_override || projectData?.metaCheckedPath || null;
+    if (!matrixPath || !metaPath) {
+        alert("Project is missing a checked matrix or metadata path.");
+        return;
+    }
+
+    const originalLabel = dom.runNetworkBtn().innerHTML;
+    dom.runNetworkBtn().disabled = true;
+    dom.runNetworkBtn().innerHTML = '<i class="fa-solid fa-sync fa-spin me-2"></i>Running...';
+    dom.networkModalError().textContent = "";
+
+    try {
+        const queuedTask = {
+            run_id: null,
+            task_id: null,
+            title: runName,
+            source_run_id: analysis.run_id,
+            target: getAnalysisDisplayTarget(analysis),
+            comparison: analysis.comparison,
+            network_type: networkType,
+            organism: dom.networkOrganism().value,
+            ref_group: refGroup,
+            status: "pending",
+            message: "Queued for network processing.",
+            started_at: new Date().toISOString(),
+        };
+        projectData = { ...projectData, network_task: queuedTask };
+        renderNetworkHistory();
+
+        const response = await fetch(`${vpsUrl}/network/run`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "ngrok-skip-browser-warning": "true" },
+            body: JSON.stringify({
+                project_id: projectId,
+                settings: {
+                    source_run_id: analysis.run_id,
+                    title: runName,
+                    target_meta: getAnalysisDisplayTarget(analysis),
+                    group_column: analysis.target || "group",
+                    comparison: analysis.comparison,
+                    network_type: networkType,
+                    organism: dom.networkOrganism().value,
+                    ref_group: refGroup,
+                    n_lipid: nLipid,
+                    p_cutoff: pCutoff,
+                    fc_cutoff: fcCutoff,
+                    matrix_path: matrixPath,
+                    meta_path: metaPath,
+                },
+            }),
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.detail || payload.message || "Network run failed.");
+
+        selectedNetworkRunId = payload.run_id || null;
+        projectData = {
+            ...projectData,
+            network_task: {
+                ...queuedTask,
+                run_id: payload.run_id || null,
+                task_id: payload.task_id ?? null,
+                status: "pending",
+                message: "Queued for network processing.",
+            },
+        };
+        renderNetworkHistory();
+        networkModal?.hide();
+    } catch (error) {
+        projectData = {
+            ...projectData,
+            network_task: {
+                ...(projectData?.network_task || {}),
+                status: "error",
+                message: error.message || String(error),
+                completed_at: new Date().toISOString(),
+            },
+        };
+        renderNetworkHistory();
+        console.error("Network run error:", error);
+        dom.networkModalError().textContent = error.message || String(error);
+    } finally {
+        dom.runNetworkBtn().disabled = false;
+        dom.runNetworkBtn().innerHTML = originalLabel;
+    }
+}
+
 async function renderSelectedViolinPlots() {
     const lipids = Array.from(selectedLipids);
     if (!lipids.length) {
@@ -2902,8 +3335,9 @@ async function loadAnalysisResults(analysis, options = {}) {
     updateNormalityInfoFromResults(uniResultsGlobal);
     renderViolinEmpty("Select features from the table to load violin plots.");
     setTimeout(() => renderVolcanoPlot(uniResultsGlobal), 50);
-    setActiveResultsTab(options.preferredTab === "enrichment" ? "enrichment" : "overview");
+    setActiveResultsTab(["enrichment", "network"].includes(options.preferredTab) ? options.preferredTab : "overview");
     renderEnrichmentHistory();
+    renderNetworkHistory();
 
     dom.analysisName().value = analysis.name || "";
     if (analysis.input_mode === "split" && analysis.split_config) {

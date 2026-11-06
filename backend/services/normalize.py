@@ -6,7 +6,7 @@ import time
 from scipy import stats
 from sklearn.preprocessing import QuantileTransformer
 from sklearn.decomposition import PCA
-from pycombat import Combat
+from pycombat import pycombat
 
 from services.common import *
 
@@ -277,9 +277,10 @@ def process_normalization(project_id, uid, matrix_path, meta_path, settings):
             if bc == "ComBat" and settings.get('batch_col'):
                 batch_col = settings.get('batch_col')
                 logger.info(f"[Normalize] Using batch column: {batch_col}")
-                batch_ids = df_meta.loc[df.columns, batch_col].values
-                corrected = Combat().fit_transform(df.T.values, batch_ids)
-                df = pd.DataFrame(corrected, index=df.columns, columns=df.index).T
+                df = pycombat(
+                    df,
+                    df_meta.loc[df.columns, batch_col].values
+                )
             elif bc == "Blind":
                 logger.info("[Normalize] Running PCA (Blind correction) — assumes PC1 = technical variation...")
                 pca = PCA(n_components=1)

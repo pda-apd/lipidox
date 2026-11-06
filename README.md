@@ -9,11 +9,12 @@ source code (v1.0.0) released with the accompanying manuscript.
 ```
 backend/                  FastAPI backend and analysis services
   services/               preprocessing, PCA, PLS-DA, univariate tests,
-                          biomarker models, enrichment, lipid ID conversion
+                          biomarker models, enrichment, lipid ID conversion,
+                          pathway / GATOM / lipid-reaction networks
   example_seed/Example/   bundled demonstration datasets
 client/                   HTML/JavaScript interface
+tools/                    offline helpers (LipidSigR annotation export, network runner)
 Dockerfile                single-container image (Python 3.10)
-run_dev.bat               Windows helper for local development
 ```
 
 ## Availability and requirements
@@ -24,7 +25,7 @@ run_dev.bat               Windows helper for local development
 | Project home page | https://github.com/pda-apd/lipidox |
 | Operating system(s) | Platform independent (Docker); Linux, macOS, Windows (Python) |
 | Programming language | Python 3.10 (backend), JavaScript (frontend) |
-| Other requirements | Docker 20+, or Python 3.10 with the packages in `backend/requirements.txt` |
+| Other requirements | Docker 20+, or Python 3.10 with the packages in `backend/requirements.txt`. The pathway / GATOM / lipid-reaction network module additionally requires R with the LipidSigR package; it is disabled automatically when `Rscript` is not available. |
 | License | MIT (see `LICENSE`) |
 
 ## Run with Docker
@@ -83,8 +84,10 @@ normalization steps, apply the log₂ transformation, and run PCA.
 - **Biomarker models**: OLS and ordinal logistic regression, correlation
   analysis, ROC analysis, random forest, SVM.
 - **Enrichment**: gene/protein set enrichment (GSEA), lipid over-representation
-  and lipid set enrichment analysis, enrichment-map networks, lipid reaction
-  and pathway activity networks.
+  and lipid set enrichment analysis, and enrichment-map networks.
+- **Network analysis**: pathway activity, GATOM and lipid-reaction networks,
+  computed through LipidSigR (`tools/run_network.R`) and rendered in the
+  browser; requires an R installation with LipidSigR on the server.
 - **Lipid ID conversion**: pygoslin-based name parsing with locally bundled
   annotation snapshots.
 
@@ -92,4 +95,4 @@ normalization steps, apply the log₂ transformation, and run PCA.
 
 Released under the MIT License. Citation metadata is provided in
 `CITATION.cff`. If you use LipidoX in published work, please cite the
-manuscript and the archived release DOI.
+manuscript and the versioned release (v1.0.0).

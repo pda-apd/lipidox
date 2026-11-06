@@ -1,15 +1,16 @@
 import pandas as pd
+import seaborn as sns
 import matplotlib
-matplotlib.use('Agg')  # must run before pyplot: TkAgg deadlocks in worker threads
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-import seaborn as sns
 import io
 import time
 import numpy as np
 import logging
 
 from services.common import *
+
+matplotlib.use('Agg')
 
 logger = logging.getLogger("HEATMAP")
 
@@ -59,9 +60,7 @@ def generate_heatmap_epress(project_id, uid, matrix_path, meta_path, settings, r
         preserve_feature_order = bool(settings.get('preserve_feature_order'))
         feature_sections = settings.get('feature_sections') if isinstance(settings.get('feature_sections'), list) else []
         palette = settings.get('palette', 'RdBu_r')
-        # inches; clamped so a pixel-sized value (e.g. 900) cannot exhaust memory
-        fig_w, fig_h = (min(50.0, max(2.0, float(settings.get('width', 12)))),
-                        min(50.0, max(2.0, float(settings.get('height', 10)))))
+        fig_w, fig_h = float(settings.get('width', 12)), float(settings.get('height', 10))
         logger.info(f"[Heatmap] Mode: {mode}")
         logger.info(f"[Heatmap] Scale mode: {scale_mode}")
         logger.info(f"[Heatmap] Meta column: {meta_col}")

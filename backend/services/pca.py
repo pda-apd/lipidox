@@ -197,8 +197,13 @@ def run_pca(
         df = df.fillna(df.median())
 
     max_components = int(min(df.shape[0], df.shape[1]))
-    if n_components <= 0 or n_components > max_components:
-        logger.warning(f"[PCA] Invalid n_components={n_components}. Adjusted to {max_components}")
+    if n_components <= 0:
+        # "Auto" is capped, not full rank: a full-rank run on a wide matrix
+        # writes a multi-MB file that makes the PCA page slow to reopen.
+        n_components = int(min(30, max(1, df.shape[0] - 1), df.shape[1]))
+        logger.info(f"[PCA] Auto n_components resolved to {n_components}")
+    elif n_components > max_components:
+        logger.warning(f"[PCA] n_components={n_components} exceeds max {max_components}. Adjusted to {max_components}")
         n_components = max_components
 
     logger.info(f"[PCA] Running PCA (n_components={n_components})...")

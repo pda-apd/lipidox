@@ -187,7 +187,8 @@ function normalizeRunRecord(record, method) {
 function getAllRunsFromProjectData(projectData) {
     const pls = (projectData.plsda_history || []).map((r) => normalizeRunRecord(r, "PLS-DA"));
     const opls = (projectData.oplsda_history || []).map((r) => normalizeRunRecord(r, "OPLS-DA"));
-    return dedupeRuns([...pls, ...opls]).sort((a, b) =>
+    const spls = (projectData.splsda_history || []).map((r) => normalizeRunRecord(r, "sPLS-DA"));
+    return dedupeRuns([...pls, ...opls, ...spls]).sort((a, b) =>
         new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()
     );
 }
