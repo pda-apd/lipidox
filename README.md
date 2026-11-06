@@ -26,8 +26,6 @@ run_dev.bat               Windows helper for local development
 | Programming language | Python 3.10 (backend), JavaScript (frontend) |
 | Other requirements | Docker 20+, or Python 3.10 with the packages in `backend/requirements.txt` |
 | License | MIT (see `LICENSE`) |
-| RRID | not assigned |
-| bio.tools ID | not assigned |
 
 ## Run with Docker
 
