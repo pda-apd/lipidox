@@ -1,0 +1,35 @@
+name: docker
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t lipidox:ci .
+
+      - name: Start container and wait for the API
+        run: |
+          docker run -d --name lipidox -p 7860:7860 lipidox:ci
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:7860/ >/dev/null 2>&1; then
+              echo "API up after $((i * 2))s"
+              curl -fsS http://localhost:7860/api/health || true
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "API did not start within 120s"
+          docker logs lipidox
+          exit 1
+
+      - name: Container logs
+        if: always()
+        run: docker logs lipidox || true
