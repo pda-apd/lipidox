@@ -96,3 +96,8 @@ normalization steps, apply the log₂ transformation, and run PCA.
 Released under the MIT License. Citation metadata is provided in
 `CITATION.cff`. If you use LipidoX in published work, please cite the
 manuscript and the versioned release (v1.0.0).
+
+The MIT License covers the source code. The names "LipidoX" and the project logo
+are not licensed for use in derivative product names or endorsement. Annotation
+tables in `backend/services/lipidref/data/` derive from third-party resources;
+see `THIRD_PARTY_NOTICES.md`.
