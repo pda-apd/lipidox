@@ -3,6 +3,7 @@ import json
 import logging
 import math
 import os
+import threading
 import time
 from functools import lru_cache
 
@@ -12,10 +13,33 @@ import pandas as pd
 from gseapy import enrichment_map
 import gseapy as gp
 
+from config import get_settings
 from services.common import *
 from storage import _normalize_rel_path
 
 logger = logging.getLogger(__name__)
+settings = get_settings()
+
+
+def _run_with_timeout(func, timeout, label):
+    """Run a blocking remote call without letting it pin a worker forever."""
+    outcome = {}
+
+    def target():
+        try:
+            outcome["value"] = func()
+        except BaseException as exc:  # noqa: BLE001 - re-raised below
+            outcome["error"] = exc
+
+    worker = threading.Thread(target=target, daemon=True, name=f"external-{label}")
+    worker.start()
+    worker.join(max(1, int(timeout)))
+    if worker.is_alive():
+        logger.warning("%s exceeded %ss; using the local fallback.", label, timeout)
+        return None
+    if "error" in outcome:
+        raise outcome["error"]
+    return outcome.get("value")
 
 # Feature-percent mode for GSEA payloads:
 # 0 -> use Gene % (position on ranked list)
@@ -92,19 +116,34 @@ def _map_features_to_genes(features):
     identifier_type = _detect_identifier_type(clean_features)
     if not identifier_type:
         return mapping
+    if not settings.external_enrichment_enabled:
+        # SSRF-02: operator opted out of sending feature names to NCBI.
+        return mapping
 
     try:
         import mygene
 
         mg = mygene.MyGeneInfo()
-        query_result = mg.querymany(
-            [feature for feature in clean_features if feature],
-            scopes=identifier_type,
-            fields="symbol",
-            species="human",
-            as_dataframe=False,
-            returnall=False,
-            verbose=False,
+        try:
+            import httpx
+
+            # biothings_client disables timeouts by default.
+            mg.http_client = httpx.Client(timeout=settings.external_call_timeout_seconds)
+            mg.http_client_setup = True
+        except Exception:
+            pass
+        query_result = _run_with_timeout(
+            lambda: mg.querymany(
+                [feature for feature in clean_features if feature],
+                scopes=identifier_type,
+                fields="symbol",
+                species="human",
+                as_dataframe=False,
+                returnall=False,
+                verbose=False,
+            ),
+            settings.external_call_timeout_seconds,
+            "mygene",
         )
         for item in query_result or []:
             query = _clean_feature_name(item.get("query"))
@@ -551,17 +590,29 @@ def run_ttest_enrichment_ora(project_id, uid, settings, run_id=None, task_id=Non
                 gene_sets_arg = gmt_path
                 bg_arg = background_genes or 20000
             else:
+                if not settings.external_enrichment_enabled:
+                    logger.warning(
+                        "Skipping remote Enrichr database %s (EXTERNAL_ENRICHMENT_ENABLED=0).",
+                        database,
+                    )
+                    continue
                 gene_sets_arg = database
                 bg_arg = background_genes or 20000
 
             try:
-                enr = gp.enrich(
-                    gene_list=genes,
-                    gene_sets=gene_sets_arg,
-                    background=bg_arg,
-                    outdir=None,
-                    no_plot=True,
+                enr = _run_with_timeout(
+                    lambda: gp.enrich(
+                        gene_list=genes,
+                        gene_sets=gene_sets_arg,
+                        background=bg_arg,
+                        outdir=None,
+                        no_plot=True,
+                    ),
+                    settings.external_call_timeout_seconds,
+                    f"gseapy-{database}",
                 )
+                if enr is None:
+                    continue
                 result_df = enr.results
             except Exception as exc:
                 logger.warning("ORA failed for database %s: %s", database, exc)
@@ -623,7 +674,7 @@ def run_ttest_enrichment_ora(project_id, uid, settings, run_id=None, task_id=Non
         }
 
         csv_buffer = io.StringIO()
-        export_table.to_csv(csv_buffer, index=False)
+        csv_safe_frame(export_table).to_csv(csv_buffer, index=False)
 
         data_dest = f"projects/{uid}/{project_id}/ttest_enrichment_{task_run_id}.json"
         csv_dest = f"projects/{uid}/{project_id}/ttest_enrichment_{task_run_id}.csv"
@@ -939,7 +990,7 @@ def run_ttest_enrichment(project_id, uid, settings, run_id=None, task_id=None):
         }
 
         csv_buffer = io.StringIO()
-        export_table.to_csv(csv_buffer, index=False)
+        csv_safe_frame(export_table).to_csv(csv_buffer, index=False)
 
         data_dest = f"projects/{uid}/{project_id}/ttest_enrichment_{task_run_id}.json"
         csv_dest = f"projects/{uid}/{project_id}/ttest_enrichment_{task_run_id}.csv"

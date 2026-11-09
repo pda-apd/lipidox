@@ -12,7 +12,7 @@ import argparse
 import hashlib
 import json
 import logging
-import pickle
+import os
 import shutil
 import subprocess
 import tempfile
@@ -20,7 +20,7 @@ import threading
 import time
 import zipfile
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Dict, List, Optional
 
 from config import get_settings
@@ -91,12 +91,17 @@ def _current_slot_label(now: Optional[datetime] = None) -> Optional[str]:
 
 
 def _export_database() -> List[Dict[str, Any]]:
-    """Export all DB rows as a list of {table, rows} dicts."""
+    """Export all DB rows as a list of {table, rows} dicts.
+
+    Password hashes are deliberately excluded: a backup must not double as an
+    offline cracking target. Restore of the users table therefore needs a
+    password reset, which is acceptable because restore is manual only.
+    """
     exported: List[Dict[str, Any]] = []
     with SessionLocal() as db:
         users = [
             {
-                "id": str(u.id), "email": u.email, "password_hash": u.password_hash,
+                "id": str(u.id), "email": u.email,
                 "role_id": u.role_id,
                 "created_at": u.created_at.isoformat() if u.created_at else None,
             }
@@ -168,10 +173,37 @@ def _zip_storage(temp_root: Path) -> None:
 
 def _write_db_dump(temp_root: Path) -> Path:
     db_export = _export_database()
-    output = temp_root / "database.pkl"
-    with output.open("wb") as handle:
-        pickle.dump(db_export, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    output = temp_root / "database.json"
+    output.write_text(
+        json.dumps(db_export, ensure_ascii=False, default=_safe_json_default),
+        encoding="utf-8",
+    )
     return output
+
+
+def _encryption_key() -> Optional[bytes]:
+    raw = (settings.backup_encryption_key or os.environ.get("BACKUP_ENCRYPTION_KEY", "")).strip()
+    if not raw:
+        return None
+    return hashlib.sha256(raw.encode("utf-8")).digest()
+
+
+def _encrypt_file(source: Path, destination: Path, key: bytes) -> None:
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+    nonce = os.urandom(12)
+    ciphertext = AESGCM(key).encrypt(nonce, source.read_bytes(), b"lipidportal-backup")
+    destination.write_bytes(b"LPBK1" + nonce + ciphertext)
+
+
+def _decrypt_file(source: Path, destination: Path, key: bytes) -> None:
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+    blob = source.read_bytes()
+    if not blob.startswith(b"LPBK1") or len(blob) < 5 + 12:
+        raise ValueError("Not an encrypted LipidPortal backup")
+    plaintext = AESGCM(key).decrypt(blob[5:17], blob[17:], b"lipidportal-backup")
+    destination.write_bytes(plaintext)
 
 
 def _write_manifest(temp_root: Path, fingerprint: str, storage_manifest) -> None:
@@ -202,19 +234,37 @@ def cleanup_old_backups(retention_days: int = RETENTION_DAYS) -> List[str]:
     _ensure_dirs()
     cutoff = _utc_now() - timedelta(days=retention_days)
     deleted: List[str] = []
-    backup_files = sorted(BACKUP_DIR.glob("backup_*.zip"), key=lambda p: p.stat().st_mtime, reverse=True)
-    keep_one = backup_files[:1]
-    keep_set = {p.resolve() for p in keep_one}
-    for backup_file in backup_files:
+    backup_files = sorted(
+        (p for p in BACKUP_DIR.glob("backup_*") if p.is_file() and (p.name.endswith(".zip") or p.name.endswith(".zip.enc"))),
+        key=lambda p: p.stat().st_mtime, reverse=True,
+    )
+    # Never delete the newest backup, even if it alone exceeds the size cap.
+    for backup_file in backup_files[1:]:
         try:
-            if backup_file.resolve() in keep_set:
-                continue
             modified = datetime.fromtimestamp(backup_file.stat().st_mtime, tz=timezone.utc)
             if modified < cutoff:
                 backup_file.unlink(missing_ok=True)
                 deleted.append(backup_file.name)
         except Exception:
             logger.exception("Failed to delete old backup %s", backup_file)
+
+    # DATA-05: age alone allows ~56 copies; cap total bytes as well.
+    cap = max(1, int(settings.backup_max_total_mb)) * 1024 * 1024
+    remaining = sorted(
+        (p for p in BACKUP_DIR.glob("backup_*") if p.is_file() and (p.name.endswith(".zip") or p.name.endswith(".zip.enc"))),
+        key=lambda p: p.stat().st_mtime, reverse=True,
+    )
+    total = sum(p.stat().st_size for p in remaining)
+    for backup_file in reversed(remaining[1:]):
+        if total <= cap:
+            break
+        try:
+            size = backup_file.stat().st_size
+            backup_file.unlink(missing_ok=True)
+            total -= size
+            deleted.append(backup_file.name)
+        except Exception:
+            logger.exception("Failed to enforce backup size cap for %s", backup_file)
     return deleted
 
 
@@ -245,6 +295,14 @@ def run_backup_once(force: bool = False) -> Dict[str, Any]:
         _write_manifest(temp_root, fingerprint, storage_manifest)
         _zip_folder(temp_root, output_zip)
 
+    key = _encryption_key()
+    if key:
+        encrypted = output_zip.with_suffix(".zip.enc")
+        _encrypt_file(output_zip, encrypted, key)
+        output_zip.unlink(missing_ok=True)
+        output_zip = encrypted
+        file_name = encrypted.name
+
     deleted = cleanup_old_backups()
     state.update({
         "last_backup_at": _utc_now().isoformat(),
@@ -259,6 +317,39 @@ def run_backup_once(force: bool = False) -> Dict[str, Any]:
     return {"status": "created", "file": str(output_zip), "deleted_old_backups": deleted}
 
 
+_MAX_RESTORE_BYTES = 20 * 1024 * 1024 * 1024
+_MAX_RESTORE_MEMBERS = 200_000
+
+
+def _safe_extract(source: zipfile.ZipFile, destination: Path) -> None:
+    """Extract a zip without allowing zip-slip or a decompression bomb."""
+    destination = destination.resolve()
+    total = 0
+    members = source.infolist()
+    if len(members) > _MAX_RESTORE_MEMBERS:
+        raise ValueError("Backup contains too many entries")
+    for info in members:
+        name = info.filename.replace("\\", "/")
+        pure = PurePosixPath(name)
+        parts = pure.parts
+        if not parts or pure.is_absolute() or ".." in parts or ":" in parts[0]:
+            raise ValueError(f"Unsafe backup entry: {info.filename}")
+        total += max(0, int(info.file_size))
+        if total > _MAX_RESTORE_BYTES:
+            raise ValueError("Backup exceeds the restore size limit")
+        target = (destination / pure).resolve()
+        try:
+            target.relative_to(destination)
+        except ValueError:
+            raise ValueError(f"Unsafe backup entry: {info.filename}")
+        if info.is_dir():
+            target.mkdir(parents=True, exist_ok=True)
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with source.open(info, "r") as src, target.open("wb") as dst:
+            shutil.copyfileobj(src, dst, length=1024 * 1024)
+
+
 def restore_backup(zip_path: str, clear_existing: bool = False) -> Dict[str, Any]:
     source = Path(zip_path)
     if not source.exists():
@@ -266,10 +357,18 @@ def restore_backup(zip_path: str, clear_existing: bool = False) -> Dict[str, Any
 
     with tempfile.TemporaryDirectory(prefix="lipid_restore_") as tmp_dir:
         temp_root = Path(tmp_dir)
-        with zipfile.ZipFile(source, "r") as zf:
-            zf.extractall(temp_root)
+        zip_file = source
+        if source.name.endswith(".enc"):
+            key = _encryption_key()
+            if not key:
+                raise ValueError("BACKUP_ENCRYPTION_KEY is required to restore this backup")
+            zip_file = temp_root / "backup.zip"
+            _decrypt_file(source, zip_file, key)
 
-        db_dump = temp_root / "database.pkl"
+        with zipfile.ZipFile(zip_file, "r") as zf:
+            _safe_extract(zf, temp_root)
+
+        db_dump = temp_root / "database.json"
         storage_src = temp_root / "storage"
 
         if clear_existing and settings.storage_root_path.exists():
@@ -279,10 +378,11 @@ def restore_backup(zip_path: str, clear_existing: bool = False) -> Dict[str, Any
             shutil.copytree(storage_src, settings.storage_root_path, dirs_exist_ok=True)
 
         if db_dump.exists():
-            with db_dump.open("rb") as handle:
-                db_payload = pickle.load(handle)
-            # Restore requires manual table insertion (not auto-implemented for safety)
+            db_payload = json.loads(db_dump.read_text(encoding="utf-8"))
             logger.info("DB dump contains %d tables. Manual restore via SQL recommended.", len(db_payload))
+        elif (temp_root / "database.pkl").exists():
+            # Legacy pickle dumps are intentionally not deserialized.
+            logger.warning("Legacy database.pkl ignored; re-create the backup with this version.")
 
     return {"status": "restored", "source": str(source), "cleared_existing": bool(clear_existing)}
 

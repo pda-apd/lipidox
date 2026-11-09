@@ -350,7 +350,7 @@ def run_univariate_analysis(project_id, uid, matrix_path, meta_path, settings, r
             logger.warning("Result dataframe is empty!")
 
         csv_buf = io.StringIO()
-        res_df.to_csv(csv_buf, index=False)
+        csv_safe_frame(res_df).to_csv(csv_buf, index=False)
 
         results_records = make_json_safe(res_df.to_dict(orient="records"))
         results_payload = {

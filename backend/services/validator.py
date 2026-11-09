@@ -216,7 +216,7 @@ def save_checked_meta(project_id: str, uid: str, meta_path: str, changes: dict):
 
         # --- SAVE ---
         output = io.StringIO()
-        df.to_csv(output)
+        csv_safe_frame(df).to_csv(output)
 
         new_path = f"projects/{uid}/{project_id}/meta_checked.csv"
         save_text(uid, project_id, new_path, output.getvalue())

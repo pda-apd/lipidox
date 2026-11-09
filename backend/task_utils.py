@@ -101,7 +101,13 @@ def update_project_status(
     paths: Optional[dict] = None,
     extra: Optional[dict] = None,
 ) -> Optional[Project]:
-    project = db.query(Project).filter(Project.id == project_id).first()
+    from auth import log_uid_var
+
+    query = db.query(Project).filter(Project.id == project_id)
+    uid = log_uid_var.get()
+    if uid:
+        query = query.filter(Project.user_id == uid)
+    project = query.first()
     if project is None:
         logger.warning(f"Project not found: {project_id}")
         return None

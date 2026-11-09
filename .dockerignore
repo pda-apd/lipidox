@@ -1,28 +1,34 @@
 # Build artefacts & local state
-__pycache__/
-*.py[cod]
-*.egg-info/
-.venv/
-venv/
-env/
+# `**/` is required for nested artefacts: Docker anchors patterns without it
+# to the context root. Runtime dirs below stay root-anchored on purpose —
+# `**/data/` would also drop backend/services/lipidref/data/ (parquet refs).
+**/__pycache__/
+**/*.py[cod]
+**/*.egg-info/
+**/.venv/
+**/venv/
+**/env/
 
-# Local runtime data (Docker mounts a writable /data volume)
-backend/storage/
-backend/backups/
-backend/.env
-data/
-*.db
-*.sqlite
-*.sqlite3
+# Local runtime data (the container mounts a writable /data volume)
+/data/
+/backend/data/
+/storage/
+/backend/storage/
+/backups/
+/backend/backups/
+**/.env
+**/*.db
+**/*.sqlite
+**/*.sqlite3
 
 # Cache / OS
 .DS_Store
 Thumbs.db
-*.log
+**/*.log
 
 # Docs / manuscripts not needed for the running app
-*.docx
-*.pdf
+**/*.docx
+**/*.pdf
 
 # Git
 .git/

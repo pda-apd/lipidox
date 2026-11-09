@@ -6,9 +6,10 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import bcrypt as _bcrypt
-from fastapi import Depends, HTTPException, status
+import jwt
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
+from jwt import PyJWTError as JWTError
 from sqlalchemy.orm import Session
 
 from config import get_settings
@@ -47,19 +48,29 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 
 def create_access_token(user_id: uuid.UUID, email: str) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(hours=settings.jwt_expire_hours)
+    now = datetime.now(timezone.utc)
+    expire = now + timedelta(hours=settings.jwt_expire_hours)
     payload = {
         "sub": str(user_id),
         "email": email,
+        "jti": uuid.uuid4().hex,
+        "iss": settings.jwt_issuer,
+        "aud": settings.jwt_audience,
         "exp": expire,
-        "iat": datetime.now(timezone.utc),
+        "iat": now,
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
 def decode_token(token: str) -> dict:
     try:
-        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+        payload = jwt.decode(
+            token,
+            settings.jwt_secret,
+            algorithms=[settings.jwt_algorithm],
+            audience=settings.jwt_audience,
+            issuer=settings.jwt_issuer,
+        )
     except JWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
     if token in _token_blacklist:
@@ -67,13 +78,57 @@ def decode_token(token: str) -> dict:
     return payload
 
 
+def token_is_revoked(db: Session, payload: dict) -> bool:
+    from models import RevokedToken
+
+    jti = payload.get("jti")
+    if not jti:
+        return False
+    return db.query(RevokedToken.jti).filter(RevokedToken.jti == str(jti)).first() is not None
+
+
+def revoke_token(db: Session, payload: dict) -> None:
+    from models import RevokedToken
+
+    jti = payload.get("jti")
+    if not jti:
+        return
+    exp = payload.get("exp")
+    expires_at = (
+        datetime.fromtimestamp(int(exp), tz=timezone.utc)
+        if exp else datetime.now(timezone.utc) + timedelta(hours=settings.jwt_expire_hours)
+    )
+    if not db.query(RevokedToken.jti).filter(RevokedToken.jti == str(jti)).first():
+        db.add(RevokedToken(jti=str(jti), expires_at=expires_at))
+        db.commit()
+    db.query(RevokedToken).filter(RevokedToken.expires_at < datetime.now(timezone.utc)).delete()
+
+
+def purge_expired_revocations(db: Session) -> None:
+    from models import RevokedToken
+
+    db.query(RevokedToken).filter(
+        RevokedToken.expires_at < datetime.now(timezone.utc)
+    ).delete()
+    db.commit()
+
+
+SESSION_COOKIE = "lipidportal_session"
+
+
 async def get_current_user(
+    request: Request,
     token: Optional[str] = Depends(oauth2_scheme),
     db: Session = Depends(get_db_dep),
 ) -> User:
+    # HttpOnly cookie is the primary transport; Bearer stays for API clients.
+    if not token:
+        token = request.cookies.get(SESSION_COOKIE)
     if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
     payload = decode_token(token)
+    if token_is_revoked(db, payload):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token revoked")
     user_id = payload.get("sub")
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
@@ -89,12 +144,13 @@ async def get_current_user(
 
 
 async def get_current_user_optional(
+    request: Request,
     token: Optional[str] = Depends(oauth2_scheme),
     db: Session = Depends(get_db_dep),
 ) -> Optional[User]:
-    if not token:
+    if not token and not request.cookies.get(SESSION_COOKIE):
         return None
     try:
-        return await get_current_user(token, db)
+        return await get_current_user(request, token, db)
     except HTTPException:
         return None

@@ -503,7 +503,10 @@ export function createAnalysisCore(ctx) {
             dom.colorBySelect.appendChild(option);
         });
 
-        const fallback = ctx.defaultColorBy !== undefined ? ctx.defaultColorBy : (run.data?.target_meta || run.config?.target_meta || columns[0] || null);
+        // Prefer the clinical group column over alphabetical first (e.g. Age)
+        // when a run has no saved target.
+        const defaultColumn = columns.find((c) => c.toLowerCase() === "group") || columns[0] || null;
+        const fallback = ctx.defaultColorBy !== undefined ? ctx.defaultColorBy : (run.data?.target_meta || run.config?.target_meta || defaultColumn);
         if (!dom.colorBySelect.querySelector(`option[value="${CSS.escape(state.colorBy || "")}"]`)) {
             state.colorBy = fallback;
         }

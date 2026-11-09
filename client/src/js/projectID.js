@@ -18,6 +18,13 @@ let deleteModal;
 let renameModal;
 let renameTargetId = null;
 
+// Project names and account email are user-supplied: never render them as markup.
+function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    }[c]));
+}
+
 initializeTerminalWidget();
 
 onAuthStateChanged(auth, (user) => {
@@ -55,7 +62,7 @@ function renderUserMenu() {
     if (!user || !menu) return;
 
     menu.innerHTML = `
-        <li class="px-3 py-2 small fw-bold text-primary border-bottom mb-1">${user.email}</li>
+        <li class="px-3 py-2 small fw-bold text-primary border-bottom mb-1">${escapeHtml(user.email)}</li>
         <li><button id="logout-btn" class="dropdown-item text-danger py-2">
             <i class="fa-solid fa-right-from-bracket me-2"></i> Sign Out
         </button></li>
@@ -183,8 +190,8 @@ function renderProjectCards(uid) {
                         <span class="badge ${statusConfig.class} status-badge">${statusConfig.label}</span>
                     </div>
                     <div class="d-flex align-items-center gap-2 mb-1">
-                        <h5 class="fw-bold text-truncate mb-0 flex-grow-1">${data.projectName}</h5>
-                        <button class="btn btn-link btn-sm p-0 text-muted rename-btn" data-id="${id}" data-name="${data.projectName}" title="Rename">
+                        <h5 class="fw-bold text-truncate mb-0 flex-grow-1">${escapeHtml(data.projectName)}</h5>
+                        <button class="btn btn-link btn-sm p-0 text-muted rename-btn" data-id="${escapeHtml(id)}" data-name="${escapeHtml(data.projectName)}" title="Rename">
                             <i class="fa-solid fa-pen fa-xs"></i>
                         </button>
                     </div>

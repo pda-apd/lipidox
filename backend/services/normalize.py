@@ -329,7 +329,7 @@ def process_normalization(project_id, uid, matrix_path, meta_path, settings):
         logger.info(f"[Normalize] Saving file: {new_filename}")
 
         output = io.StringIO()
-        df.to_csv(output)
+        csv_safe_frame(df).to_csv(output)
         save_text(uid, project_id, new_path, output.getvalue())
 
         logger.info("[Normalize] Upload completed")
@@ -350,7 +350,7 @@ def process_normalization(project_id, uid, matrix_path, meta_path, settings):
             pre_scale_filename = f"{'_'.join(name_parts_pre)}_preScale.csv"
             pre_scale_path = f"projects/{uid}/{project_id}/{pre_scale_filename}"
             pre_output = io.StringIO()
-            df_prescale.to_csv(pre_output)
+            csv_safe_frame(df_prescale).to_csv(pre_output)
             save_text(uid, project_id, pre_scale_path, pre_output.getvalue())
             logger.info("[Normalize] Pre-scale file upload completed")
         else:

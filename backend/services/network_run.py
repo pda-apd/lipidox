@@ -10,6 +10,7 @@ the network matches the table the user is looking at.
 """
 from __future__ import annotations
 
+import html
 import json
 import logging
 import os
@@ -105,6 +106,16 @@ def _mode_switch_html(mode: str, has_other: bool) -> str:
     return "".join(parts)
 
 
+def _json_for_script(value) -> str:
+    """JSON that cannot close the surrounding <script> element."""
+    return (
+        json.dumps(value, ensure_ascii=False, separators=(",", ": "))
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
+    )
+
+
 def _build_html(spec: dict, meta: dict | None = None, other: dict | None = None) -> str:
     label, hint = _SELECTION_PRESETS[spec["network_type"]]
     template = _TEMPLATE.read_text(encoding="utf-8")
@@ -116,27 +127,27 @@ def _build_html(spec: dict, meta: dict | None = None, other: dict | None = None)
         other_extra = dict(other["extra"])
         if meta:
             other_extra["meta"] = meta
-        other_payload = json.dumps({
+        other_payload = _json_for_script({
             "mode": other.get("lipid_mode", "all"),
             "title": other["title"],
             "nodes": other["nodes"],
             "edges": other["edges"],
             "extra": other_extra,
-        }, ensure_ascii=False, separators=(",", ": "))
+        })
     mode_switch = (
         _mode_switch_html(spec.get("lipid_mode", "between"), bool(other))
         if spec["network_type"] == "lipid_reaction" else ""
     )
     return (
-        template.replace("@@TITLE@@", spec["title"])
-        .replace("@@NETWORK_TYPE@@", spec["network_type"])
-        .replace("@@LIPID_MODE@@", spec.get("lipid_mode", ""))
-        .replace("@@NODES@@", json.dumps(spec["nodes"], ensure_ascii=False, separators=(",", ": ")))
-        .replace("@@EDGES@@", json.dumps(spec["edges"], ensure_ascii=False, separators=(",", ": ")))
-        .replace("@@EXTRA@@", json.dumps(extra, ensure_ascii=False, separators=(",", ": ")))
+        template.replace("@@TITLE@@", html.escape(str(spec["title"])))
+        .replace("@@NETWORK_TYPE@@", html.escape(str(spec["network_type"])))
+        .replace("@@LIPID_MODE@@", html.escape(str(spec.get("lipid_mode", ""))))
+        .replace("@@NODES@@", _json_for_script(spec["nodes"]))
+        .replace("@@EDGES@@", _json_for_script(spec["edges"]))
+        .replace("@@EXTRA@@", _json_for_script(extra))
         .replace("@@OTHER_MODE@@", other_payload)
-        .replace("@@SELECTION_LABEL@@", label)
-        .replace("@@SELECTION_HINT@@", hint)
+        .replace("@@SELECTION_LABEL@@", html.escape(label))
+        .replace("@@SELECTION_HINT@@", html.escape(hint))
         .replace("@@MODE_SWITCH@@", mode_switch)
     )
 
@@ -154,7 +165,7 @@ def _write_de_csv(stats_rows: list[dict], path: Path) -> int:
             "padj": row.get("FDR"),
         })
     frame = pd.DataFrame(records, columns=["feature", "log2FC", "pval", "padj"])
-    frame.to_csv(path, index=False)
+    csv_safe_frame(frame).to_csv(path, index=False)
     return len(frame)
 
 

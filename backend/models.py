@@ -86,3 +86,10 @@ class TaskCounter(Base):
 
     project_id = Column(GUID, ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True)
     counter = Column(Integer, nullable=False, default=0)
+
+
+class RevokedToken(Base):
+    __tablename__ = "revoked_tokens"
+
+    jti = Column(String(64), primary_key=True)
+    expires_at = Column(DateTime(timezone=True), nullable=False, index=True)

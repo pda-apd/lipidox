@@ -28,9 +28,12 @@ if settings.is_sqlite:
 
     @event.listens_for(engine, "connect")
     def _enable_sqlite_fk(dbapi_conn, _):
-        # Enable foreign-key enforcement so ON DELETE CASCADE works.
+        # Enable foreign-key enforcement so ON DELETE CASCADE works, and let
+        # concurrent workers wait for the writer instead of failing instantly.
         cur = dbapi_conn.cursor()
         cur.execute("PRAGMA foreign_keys=ON")
+        cur.execute("PRAGMA journal_mode=WAL")
+        cur.execute("PRAGMA busy_timeout=30000")
         cur.close()
 else:
     engine = create_engine(

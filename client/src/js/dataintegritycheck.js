@@ -14,6 +14,13 @@ let currentMetadata = [];
 let metaCheckRequested = false;
 let currentProjectData = null;
 
+// Report text comes from uploaded files; never let it become markup.
+function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    }[c]));
+}
+
 initializeTerminalWidget();
 
 if (!projectId) window.location.href = "projectID.html";
@@ -66,7 +73,7 @@ if (resultActionsBar) resultActionsBar.classList.remove('d-none');
 
             const reportLines = Array.isArray(data.integrity_report) ? data.integrity_report : [];
             reportContent.innerHTML = reportLines.map((line) =>
-                `<div class="report-line"><span class="text-info">&gt;</span> ${line}</div>`
+                `<div class="report-line"><span class="text-info">&gt;</span> ${escapeHtml(line)}</div>`
             ).join('') + `<div class="mt-3 text-warning fw-bold">&gt; Dataset structure is valid</div>`;
 
             errorBox.classList.add('d-none');
@@ -111,7 +118,7 @@ if (resultActionsBar) resultActionsBar.classList.remove('d-none');
             metaTableBody.innerHTML = '';
             btnProceedFinal.classList.add('d-none');
             if (data.details) {
-                errorList.innerHTML = data.details.map(err => `<li>${err}</li>`).join('');
+                errorList.innerHTML = data.details.map(err => `<li>${escapeHtml(err)}</li>`).join('');
             }
             renderPreprocessingDiagnostics(data, preprocessDiagnostics);
         }
@@ -145,7 +152,7 @@ function renderPreprocessingDiagnostics(projectData, target) {
     target.innerHTML = `
         <div class="fw-bold mb-2"><i class="fa-solid fa-triangle-exclamation me-2"></i>Preprocessing checks found missing mappings</div>
         <ul class="small diagnostic-list">
-            ${items.map(([label, values]) => `<li><strong>${label}:</strong> ${values.join(', ')}</li>`).join('')}
+            ${items.map(([label, values]) => `<li><strong>${label}:</strong> ${escapeHtml(values.join(', '))}</li>`).join('')}
         </ul>
     `;
 }
@@ -153,9 +160,9 @@ function renderPreprocessingDiagnostics(projectData, target) {
 function renderMetaRows(metaMetadata) {
     return metaMetadata.map((meta) => `
         <tr>
-            <td class="fw-semibold">${meta.name}</td>
-            <td><span class="badge badge-status ${meta.status === 'OK' ? 'bg-success' : 'bg-warning text-dark'}">${meta.status}</span></td>
-            <td><span class="type-chip">${meta.type}</span></td>
+            <td class="fw-semibold">${escapeHtml(meta.name)}</td>
+            <td><span class="badge badge-status ${meta.status === 'OK' ? 'bg-success' : 'bg-warning text-dark'}">${escapeHtml(meta.status)}</span></td>
+            <td><span class="type-chip">${escapeHtml(meta.type)}</span></td>
         </tr>
     `).join('');
 }

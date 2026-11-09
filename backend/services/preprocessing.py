@@ -435,12 +435,12 @@ def process_preprocessing_portal(
         )
 
         output = io.StringIO()
-        matrix_after_nist.to_csv(output)
+        csv_safe_frame(matrix_after_nist).to_csv(output)
         preprocessed_path = f"projects/{resolved_uid}/{project_id}/matrix_preprocessed.csv"
         save_text(resolved_uid, project_id, preprocessed_path, output.getvalue())
 
         metadata_output = io.StringIO()
-        metadata_after_nist.to_csv(metadata_output)
+        csv_safe_frame(metadata_after_nist).to_csv(metadata_output)
         processed_meta_path = f"projects/{resolved_uid}/{project_id}/metadata_preprocessed.csv"
         save_text(resolved_uid, project_id, processed_meta_path, metadata_output.getvalue())
 

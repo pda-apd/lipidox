@@ -244,7 +244,7 @@ def run_vip_combined(
 
     # Save CSV
     csv_buf = io.StringIO()
-    res_df.to_csv(csv_buf, index=False)
+    csv_safe_frame(res_df).to_csv(csv_buf, index=False)
 
     dest = f"projects/{uid}/{project_id}/vip_combined/{run_tok}.csv"
     csv_url = upload_public(uid, project_id, dest, csv_buf.getvalue(), "text/csv")

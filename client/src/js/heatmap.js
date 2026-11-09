@@ -255,10 +255,7 @@ async function showFrameUrl(url, subtitle) {
     // and render it via srcdoc instead.
     try {
         const fullUrl = url.startsWith("http") ? url : `${API_BASE || ""}${url}`;
-        const headers = {};
-        const token = getToken();
-        if (token) headers["Authorization"] = `Bearer ${token}`;
-        const resp = await fetch(fullUrl, { headers });
+        const resp = await fetch(fullUrl, { credentials: "include" });
         if (!resp.ok) {
             showEmpty(`Failed to load result (HTTP ${resp.status}).`);
             return;

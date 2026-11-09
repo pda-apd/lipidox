@@ -1,0 +1,14 @@
+LipidoX demonstration lipidomics dataset (90 samples x 223 lipid features)
+by Anh Duc Pham, Thang Luong Pham, Minh Dang Pham, Khanh Minh Pham,
+Phuong-Anh Thi Pham, Linh My Nguyen, Huong-Ngan Thi Nguyen, Linh Nhat Nguyen,
+Tinh Nghe Nguyen, Long Cong Nguyen, Khanh Van Do
+
+is licensed under the Creative Commons Attribution 4.0 International License
+(CC BY 4.0).
+
+You are free to share (copy and redistribute the material in any medium or
+format) and to adapt (remix, transform, and build upon the material) for any
+purpose, including commercially, provided that appropriate credit is given, a
+link to the license is provided, and changes are indicated.
+
+Full license text: https://creativecommons.org/licenses/by/4.0/legalcode

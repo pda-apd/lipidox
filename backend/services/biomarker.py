@@ -505,7 +505,7 @@ def run_ols_discovery(project_id, uid, matrix_path, meta_path, settings, run_id=
         json_dest = f"projects/{uid}/{project_id}/ols_results/{run_token}.json"
         json_url = upload_public(uid, project_id, json_dest, json.dumps(records), "application/json")
 
-        csv_buf = io.StringIO(); res_df.to_csv(csv_buf, index=False)
+        csv_buf = io.StringIO(); csv_safe_frame(res_df).to_csv(csv_buf, index=False)
         dest = f"projects/{uid}/{project_id}/ols_results/{run_token}.csv"
         csv_url = upload_public(uid, project_id, dest, csv_buf.getvalue(), 'text/csv')
 
@@ -778,7 +778,7 @@ def run_correlation_analysis(project_id, uid, matrix_path, meta_path, settings, 
             'application/json',
         )
 
-        csv_buf = io.StringIO(); pd.DataFrame(table_results).to_csv(csv_buf, index=False)
+        csv_buf = io.StringIO(); csv_safe_frame(pd.DataFrame(table_results)).to_csv(csv_buf, index=False)
         csv_dest = f"projects/{uid}/{project_id}/corr_results/{run_token}.csv"
         csv_url = upload_public(uid, project_id, csv_dest, csv_buf.getvalue(), 'text/csv')
 
@@ -1421,7 +1421,7 @@ def run_roc_analysis(project_id, uid, matrix_path, meta_path, settings, run_id=N
         if results:
             csv_buf = io.StringIO()
             res_df = pd.DataFrame(results)[['lipid', 'comparison', 'auc', 'auc_ci_low', 'auc_ci_high', 'cutoff', 'sensitivity', 'specificity']]
-            res_df.to_csv(csv_buf, index=False)
+            csv_safe_frame(res_df).to_csv(csv_buf, index=False)
             csv_dest = f"projects/{uid}/{project_id}/roc_results/{run_token}.csv"
             csv_url = upload_public(uid, project_id, csv_dest, csv_buf.getvalue(), 'text/csv')
 

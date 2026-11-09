@@ -372,7 +372,7 @@ def run_ttest_enrichment_lipid(project_id, uid, settings, run_id=None, task_id=N
         }
 
         csv_buffer = io.StringIO()
-        export_table.to_csv(csv_buffer, index=False)
+        csv_safe_frame(export_table).to_csv(csv_buffer, index=False)
         data_dest = f"projects/{uid}/{project_id}/ttest_enrichment_{task_run_id}.json"
         csv_dest = f"projects/{uid}/{project_id}/ttest_enrichment_{task_run_id}.csv"
         data_url = upload_public(

@@ -16,6 +16,13 @@ let metaChanges = {
     orders: {}
 };
 
+// Metadata column and group names come from the uploaded CSV.
+function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    }[c]));
+}
+
 // --- QUẢN LÝ KHỞI TẠO VÀ AUTH ---
 onAuthStateChanged(auth, (user) => {
     if (user) {
@@ -90,19 +97,19 @@ async function triggerMetaCheck(uid, metaPath) {
 // --- RENDER TABLE ---
 function renderMetaTable(metaMetadata) {
     const tbody = document.getElementById('meta-table-body');
-    tbody.innerHTML = metaMetadata.map(meta => `
+    tbody.innerHTML = metaMetadata.map((meta, index) => `
         <tr>
-            <td><input type="text" class="form-control form-control-sm fw-bold border-0 bg-transparent" value="${meta.name}" readonly></td>
-            <td><span class="badge badge-status ${meta.status === 'OK' ? 'bg-success' : 'bg-warning'}">${meta.status}</span></td>
+            <td><input type="text" class="form-control form-control-sm fw-bold border-0 bg-transparent" value="${escapeHtml(meta.name)}" readonly></td>
+            <td><span class="badge badge-status ${meta.status === 'OK' ? 'bg-success' : 'bg-warning'}">${escapeHtml(meta.status)}</span></td>
             <td>
-                <select class="form-select form-select-sm" onchange="metaChanges.types['${meta.name}'] = this.value">
+                <select class="form-select form-select-sm" onchange="setMetaType(${index}, this.value)">
                     <option value="Categorical" ${meta.type === 'Categorical' ? 'selected' : ''}>Categorical</option>
                     <option value="Continuous" ${meta.type === 'Continuous' ? 'selected' : ''}>Continuous</option>
                 </select>
             </td>
             <td class="text-center">
                 <div class="btn-group">
-                    <button class="btn btn-sm btn-outline-info" onclick="openOrderEdit('${meta.name}')"><i class="fa-solid fa-sort me-1"></i>Order</button>
+                    <button class="btn btn-sm btn-outline-info" onclick="openOrderEdit(${index})"><i class="fa-solid fa-sort me-1"></i>Order</button>
                 </div>
             </td>
             <td><button class="btn btn-sm text-danger"><i class="fa-solid fa-trash-can"></i></button></td>
@@ -110,11 +117,18 @@ function renderMetaTable(metaMetadata) {
     `).join('');
 }
 
+// Inline handlers take a row index, never the raw column name.
+window.setMetaType = (index, value) => {
+    const meta = currentMetadata[index];
+    if (meta) metaChanges.types[meta.name] = value;
+};
+
 // --- MODAL ORDER LOGIC ---
-window.openOrderEdit = (factor) => {
-    activeFactor = factor;
-    const meta = currentMetadata.find(m => m.name === factor);
-    const groups = metaChanges.orders[factor] || meta.groups;
+window.openOrderEdit = (index) => {
+    const meta = currentMetadata[index];
+    if (!meta) return;
+    activeFactor = meta.name;
+    const groups = metaChanges.orders[activeFactor] || meta.groups;
     renderOrderList(groups);
     bootstrapModals.order.show();
 };
@@ -123,7 +137,7 @@ function renderOrderList(groups) {
     const list = document.getElementById('order-list');
     list.innerHTML = groups.map((g, i) => `
         <li class="list-group-item d-flex justify-content-between align-items-center mb-1 border shadow-sm rounded p-2">
-            <span class="small"><b class="text-primary me-2">${i + 1}.</b> ${g}</span>
+            <span class="small"><b class="text-primary me-2">${i + 1}.</b> ${escapeHtml(g)}</span>
             <div class="btn-group">
                 <button class="btn btn-xs btn-light border" onclick="moveOrder(${i}, -1)"><i class="fa-solid fa-chevron-up"></i></button>
                 <button class="btn btn-xs btn-light border" onclick="moveOrder(${i}, 1)"><i class="fa-solid fa-chevron-down"></i></button>

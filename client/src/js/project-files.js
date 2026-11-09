@@ -88,9 +88,7 @@ export async function downloadStorageFile(path, preferredFileName) {
     }
 
     const url = await getDownloadURL(ref(storage, path));
-    const response = await fetch(url, {
-        headers: { Authorization: `Bearer ${getToken()}` },
-    });
+    const response = await fetch(url, { credentials: "include" });
     if (!response.ok) throw new Error("Unable to download the requested file.");
     const blob = await response.blob();
     const objectUrl = URL.createObjectURL(blob);
@@ -105,9 +103,7 @@ export async function downloadStorageFile(path, preferredFileName) {
 
 async function getFilePreviewText(path, maxLines = 30) {
     const url = await getDownloadURL(ref(storage, path));
-    const response = await fetch(url, {
-        headers: { Authorization: `Bearer ${getToken()}` },
-    });
+    const response = await fetch(url, { credentials: "include" });
     const text = await response.text();
     const lines = text.split(/\r?\n/).slice(0, maxLines);
     return lines.join("\n");

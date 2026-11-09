@@ -4,7 +4,8 @@ uvicorn[standard]
 pydantic
 pydantic-settings
 python-multipart
-python-jose[cryptography]
+pyjwt
+cryptography
 bcrypt
 sqlalchemy
 
@@ -25,6 +26,7 @@ gseapy
 mygene
 GEOparse
 requests
+httpx
 
 umap-learn
 minisom

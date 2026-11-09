@@ -134,7 +134,7 @@ def process_matrix_filtering(project_id: str, uid: str, matrix_path: str, meta_p
         # SAVE
         # ==============================
         output = io.StringIO()
-        df.to_csv(output)
+        csv_safe_frame(df).to_csv(output)
 
         new_path = f"projects/{uid}/{project_id}/matrix_checked.csv"
         save_text(uid, project_id, new_path, output.getvalue())
@@ -142,7 +142,7 @@ def process_matrix_filtering(project_id: str, uid: str, matrix_path: str, meta_p
         logger.info("[Filter] Saved matrix")
 
         meta_output = io.StringIO()
-        df_meta.to_csv(meta_output)
+        csv_safe_frame(df_meta).to_csv(meta_output)
         new_meta_path = f"projects/{uid}/{project_id}/metadata_checked.csv"
         save_text(uid, project_id, new_meta_path, meta_output.getvalue())
         logger.info("[Filter] Saved metadata")

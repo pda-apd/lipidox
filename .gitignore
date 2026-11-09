@@ -1,22 +1,38 @@
+# Runtime data — never commit
+data/
+backend/data/
+backend/storage/
+backend/backups/
+backups/
+storage/
+*.db
+*.sqlite
+*.sqlite3
+*.db-wal
+*.db-shm
+.env
+.env.*
+!.env.example
+.jwt_secret
+
+# Backups and exports
+backup_*.zip
+backup_*.zip.enc
+exports/
+
 # Python
-.venv/
-venv/
 __pycache__/
 *.py[cod]
 *.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
-# Environment
-.env
-
-# Runtime data (database, uploads, backups)
-data/*.db
-data/backups/
-data/storage/*
-!data/storage/.gitkeep
-*.zip
-
-# Editor / OS
-.vscode/
-.idea/
+# Local/private material
+test data/
+Sec_check.md
+*.log
 .DS_Store
 Thumbs.db

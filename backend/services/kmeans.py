@@ -444,7 +444,7 @@ def save_clusters_to_meta(
     ):
         df_meta = df_meta.drop(columns=[source_col_name])
 
-    csv_bytes = df_meta.to_csv().encode("utf-8")
+    csv_bytes = csv_safe_frame(df_meta).to_csv().encode("utf-8")
     save_bytes(uid, project_id, meta_path, csv_bytes)
     logger.info(f"[KMeans] CSV uploaded: {len(csv_bytes)} bytes, columns={list(df_meta.columns)}")
 
@@ -502,7 +502,7 @@ def delete_meta_columns(
 
     if existing:
         df_meta = df_meta.drop(columns=existing)
-        csv_bytes = df_meta.to_csv().encode("utf-8")
+        csv_bytes = csv_safe_frame(df_meta).to_csv().encode("utf-8")
         save_bytes(uid, project_id, meta_path, csv_bytes)
         _verify_csv_upload(uid, project_id, meta_path, list(df_meta.columns), len(csv_bytes))
 
@@ -569,7 +569,7 @@ def create_meta_column(
         )
         df_meta[new_column_name] = parts
 
-    csv_bytes = df_meta.to_csv().encode("utf-8")
+    csv_bytes = csv_safe_frame(df_meta).to_csv().encode("utf-8")
     save_bytes(uid, project_id, meta_path, csv_bytes)
 
     # Verify upload persisted
@@ -687,7 +687,7 @@ def rename_meta_column(
         raise ValueError(f"Column '{new_name}' already exists")
 
     df_meta = df_meta.rename(columns={old_name: new_name})
-    csv_bytes = df_meta.to_csv().encode("utf-8")
+    csv_bytes = csv_safe_frame(df_meta).to_csv().encode("utf-8")
     save_bytes(uid, project_id, meta_path, csv_bytes)
     _verify_csv_upload(uid, project_id, meta_path, list(df_meta.columns), len(csv_bytes))
 

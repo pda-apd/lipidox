@@ -2877,11 +2877,8 @@ function openInlineNetworkView(entry) {
         try {
             if (!entry.html_url) throw new Error("This network run has no stored HTML report.");
             const fullUrl = entry.html_url.startsWith("http") ? entry.html_url : `${vpsUrl}${entry.html_url}`;
-            // The global fetch wrapper skips .html URLs, so send the token here.
-            const headers = {};
-            const token = getToken();
-            if (token) headers["Authorization"] = `Bearer ${token}`;
-            const response = await fetch(fullUrl, { headers });
+            // /files is auth-gated by the HttpOnly session cookie.
+            const response = await fetch(fullUrl, { credentials: "include" });
             if (!response.ok) throw new Error(`Failed to load the network report (HTTP ${response.status}).`);
             const html = await response.text();
             frame.onload = () => {

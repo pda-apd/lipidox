@@ -462,7 +462,7 @@ def run_anova_analysis(project_id, uid, matrix_path, meta_path, settings, run_id
         )
 
         csv_buf = io.StringIO()
-        csv_df.to_csv(csv_buf, index=False)
+        csv_safe_frame(csv_df).to_csv(csv_buf, index=False)
 
         csv_dest = f"projects/{uid}/{project_id}/mutilgroup/anova_multi_group_results_{run_token}.csv"
         csv_url = upload_public(uid, project_id, csv_dest, csv_buf.getvalue(), 'text/csv')

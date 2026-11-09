@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from db import SessionLocal
 from storage import (
     STORAGE_ROOT,
+    csv_safe_frame,
     file_exists,
     file_url,
     read_bytes,
@@ -98,7 +99,7 @@ def save_result_json(uid: str, project_id: str, subdir: str, run_id: str, data: 
 def save_result_csv(uid: str, project_id: str, subdir: str, run_id: str, df: pd.DataFrame) -> str:
     rel_path = f"{subdir}/{run_id}.csv"
     buf = io.StringIO()
-    df.to_csv(buf)
+    csv_safe_frame(df).to_csv(buf)
     save_text(uid, project_id, rel_path, buf.getvalue())
     return rel_path
 
@@ -164,9 +165,21 @@ def _classify_field(key: str) -> str:
     return "extra"
 
 
-def get_project(db: Session, project_id: str):
+def get_project(db: Session, project_id: str, user_id: Optional[str] = None):
+    """Look a project up inside the current tenant.
+
+    The authenticated user is carried in `log_uid_var` for the request and for
+    any background worker started from it, so services cannot read another
+    tenant's project even when a route forgets to check ownership.
+    """
+    from auth import log_uid_var
     from models import Project
-    return db.query(Project).filter(Project.id == project_id).first()
+
+    uid = user_id or log_uid_var.get()
+    query = db.query(Project).filter(Project.id == project_id)
+    if uid:
+        query = query.filter(Project.user_id == uid)
+    return query.first()
 
 
 def get_project_data(project_id: str) -> dict:

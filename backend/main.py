@@ -7,37 +7,50 @@ import json
 import logging
 import re
 import sys
+import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
 import numpy as np
 import pandas as pd
-from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from typing import Any, Dict, List, Optional
 
 from auth import (
+    SESSION_COOKIE,
     create_access_token,
+    decode_token,
     get_current_user,
     hash_password,
     log_uid_var,
+    oauth2_scheme,
+    revoke_token,
     verify_password,
 )
 from config import get_settings
 from db import Base, engine, get_db_dep
 from models import Project, User
+from rate_limit import RateLimitMiddleware
+from security import require_project
 from storage import (
+    csv_safe,
     delete_file,
     delete_project_files,
     file_exists,
     project_root,
+    project_size,
     read_bytes,
+    resolve_project_file,
+    resolve_shared_read,
     save_bytes,
+    save_stream,
     save_text,
 )
 from task_events import publish_task_update, subscribe, unsubscribe
@@ -99,10 +112,38 @@ class _UidLogFilter(logging.Filter):
         return True
 
 
+class _PiiLogFilter(logging.Filter):
+    """DATA-07: never print account emails to stdout or the SSE stream."""
+
+    _email = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+
+    def filter(self, record):
+        message = record.getMessage()
+        if "@" in message:
+            record.msg = self._email.sub("[email]", message)
+            record.args = ()
+        return True
+
+
+for _handler in logging.getLogger().handlers:
+    _handler.addFilter(_PiiLogFilter())
+
+
+class _DropNotModifiedFilter(logging.Filter):
+    """Hide expected 304 revalidations from the console: `no-cache` makes the
+    browser re-check every JS/CSS/HTML file, and "unchanged" is the normal
+    answer. Real statuses (200/4xx/5xx) still print."""
+
+    def filter(self, record):
+        args = record.args
+        return not (isinstance(args, tuple) and len(args) > 4 and args[4] == 304)
+
+
 class SSELogHandler(logging.Handler):
     def emit(self, record):
         uid = getattr(record, "uid", None)
-        msg = self.format(record)
+        # SSE frames are line-delimited: never let a filename/message inject one.
+        msg = self.format(record).replace("\r", " ").replace("\n", "\\n")
         log_buffer.append((uid, msg))
         for sub_uid, q in list(log_subscribers):
             if sub_uid == uid:
@@ -118,6 +159,10 @@ sse_handler.addFilter(_UidLogFilter())
 logging.getLogger().addHandler(sse_handler)
 
 executor = ThreadPoolExecutor(max_workers=settings.max_workers)
+_MAX_PENDING_JOBS = 100
+_pending_jobs = 0
+_jobs_lock = threading.Lock()
+_sse_slots = threading.BoundedSemaphore(100)
 
 # ─── IMPORT SERVICES ──────────────────────────────────────────────
 from services.validator import process_integrity_check, process_meta_check, save_checked_meta
@@ -177,15 +222,55 @@ from services.lipid_enrichment import (
 from services.enrichment import _load_source_ttest_run
 from services.network_run import run_network, r_available
 
-app = FastAPI(title="LipidPortal API", version="2.0.0")
+_docs_enabled = settings.enable_docs
+app = FastAPI(
+    title="LipidPortal API",
+    version="2.0.0",
+    docs_url="/docs" if _docs_enabled else None,
+    redoc_url=None,
+    openapi_url="/openapi.json" if _docs_enabled else None,
+)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origin_list,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
+app.add_middleware(RateLimitMiddleware, limit=300, window=60, auth_limit=15)
+
+# SEC-06: opt-in Host allowlist. Default "*" keeps tunnels and local dev
+# working; self-hosted deployments should set ALLOWED_HOSTS=portal.example.com.
+if settings.allowed_hosts.strip() not in ("", "*"):
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=[h.strip() for h in settings.allowed_hosts.split(",") if h.strip()],
+    )
+
+
+@app.middleware("http")
+async def _security_headers(request, call_next):
+    resp = await call_next(request)
+    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resp.headers.setdefault("X-Frame-Options", "DENY")
+    resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    resp.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+    # Permissive enough for the existing inline scripts/plugins, strict on
+    # framing/objects/base and on where scripts may come from.
+    resp.headers.setdefault(
+        "Content-Security-Policy",
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' "
+        "https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com; "
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
+        "img-src 'self' data: blob:; font-src 'self' data: https://cdnjs.cloudflare.com; "
+        "connect-src 'self' http://localhost:8000 http://127.0.0.1:8000; "
+        "frame-ancestors 'none'; base-uri 'self'; object-src 'none'",
+    )
+    if request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https":
+        resp.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    return resp
 
 
 @app.middleware("http")
@@ -256,8 +341,14 @@ def _cleanup_example_projects(db: Session, user: Optional[User] = None) -> int:
 @app.on_event("startup")
 async def startup():
     Base.metadata.create_all(bind=engine)
+    # uvicorn configures its access logger after import, so attach the filter here.
+    logging.getLogger("uvicorn.access").addFilter(_DropNotModifiedFilter())
+    from auth import purge_expired_revocations
     from backup_service import start_backup_scheduler
+
     _seed_example_data()
+    with Session(engine) as db:
+        purge_expired_revocations(db)
     start_backup_scheduler()
     try:
         with Session(engine) as db:
@@ -280,6 +371,12 @@ def init_db():
 
 def _run_in_background(func, *args, **kwargs):
     import functools
+
+    global _pending_jobs
+    with _jobs_lock:
+        if _pending_jobs >= _MAX_PENDING_JOBS:
+            raise HTTPException(status_code=429, detail="Too many queued jobs; try again later")
+        _pending_jobs += 1
     # Copy the current context so per-request contextvars (e.g. log_uid_var,
     # used to route /log-stream output per account) propagate into the worker
     # thread. asyncio.run_in_executor does NOT copy context automatically.
@@ -288,13 +385,24 @@ def _run_in_background(func, *args, **kwargs):
     if kwargs:
         func = functools.partial(func, *args, **kwargs)
         args = ()
-    loop.run_in_executor(executor, lambda: ctx.run(func, *args))
+
+    def _wrapped():
+        global _pending_jobs
+        try:
+            return ctx.run(func, *args)
+        finally:
+            with _jobs_lock:
+                _pending_jobs = max(0, _pending_jobs - 1)
+
+    loop.run_in_executor(executor, _wrapped)
 
 
 def _resolve_run_id(prefix: str, project_id: str, user_id: str, name: str, requested: Optional[str] = None) -> str:
     import hashlib
     if requested:
-        return requested
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,99}", str(requested)):
+            raise HTTPException(status_code=400, detail="Invalid run_id")
+        return str(requested)
     h = hashlib.md5(f"{prefix}_{project_id}_{user_id}_{name}".encode()).hexdigest()[:8]
     return f"{prefix}_{h}"
 
@@ -303,18 +411,47 @@ def _resolve_run_id(prefix: str, project_id: str, user_id: str, name: str, reque
 # AUTH ENDPOINTS
 # ═══════════════════════════════════════════════════════════════
 
+def _set_session_cookie(response: Response, token: str, request: Request) -> None:
+    secure = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+    response.set_cookie(
+        SESSION_COOKIE, token,
+        max_age=settings.jwt_expire_hours * 3600,
+        httponly=True, secure=secure, samesite="lax", path="/",
+    )
+
+
 class RegisterRequest(BaseModel):
     email: str
     password: str
 
+    @field_validator("email")
+    @classmethod
+    def _valid_email(cls, value: str) -> str:
+        value = (value or "").strip().lower()
+        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]{2,}", value):
+            raise ValueError("Enter a valid email address")
+        return value
+
+    @field_validator("password")
+    @classmethod
+    def _valid_password(cls, value: str) -> str:
+        value = value or ""
+        if len(value) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("Password must not exceed 72 bytes")
+        if not re.search(r"[A-Za-z]", value) or not re.search(r"\d", value):
+            raise ValueError("Password must contain at least one letter and one number")
+        return value
+
 
 @app.post("/auth/register")
-async def register(req: RegisterRequest, db: Session = Depends(get_db_dep)):
-    existing = db.query(User).filter(User.email == req.email.lower()).first()
+async def register(req: RegisterRequest, request: Request, response: Response, db: Session = Depends(get_db_dep)):
+    existing = db.query(User).filter(User.email == req.email).first()
     if existing:
-        raise HTTPException(status_code=400, detail="Email already registered")
+        raise HTTPException(status_code=400, detail="Unable to create an account with these details")
     user = User(
-        email=req.email.lower(),
+        email=req.email,
         password_hash=hash_password(req.password),
         role_id=2,
     )
@@ -322,6 +459,7 @@ async def register(req: RegisterRequest, db: Session = Depends(get_db_dep)):
     db.commit()
     db.refresh(user)
     token = create_access_token(user.id, user.email)
+    _set_session_cookie(response, token, request)
     return {
         "status": "ok",
         "token": token,
@@ -330,11 +468,12 @@ async def register(req: RegisterRequest, db: Session = Depends(get_db_dep)):
 
 
 @app.post("/auth/login")
-async def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db_dep)):
+async def login(request: Request, response: Response, form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db_dep)):
     user = db.query(User).filter(User.email == form.username.lower()).first()
     if not user or not verify_password(form.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     token = create_access_token(user.id, user.email)
+    _set_session_cookie(response, token, request)
     return {
         "status": "ok",
         "token": token,
@@ -348,11 +487,12 @@ class LoginJsonRequest(BaseModel):
 
 
 @app.post("/auth/login-json")
-async def login_json(req: LoginJsonRequest, db: Session = Depends(get_db_dep)):
+async def login_json(req: LoginJsonRequest, request: Request, response: Response, db: Session = Depends(get_db_dep)):
     user = db.query(User).filter(User.email == req.email.lower()).first()
     if not user or not verify_password(req.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     token = create_access_token(user.id, user.email)
+    _set_session_cookie(response, token, request)
     return {
         "status": "ok",
         "token": token,
@@ -367,6 +507,21 @@ async def me(user: User = Depends(get_current_user)):
         "email": user.email,
         "role_id": user.role_id,
     }
+
+
+@app.post("/auth/logout")
+async def logout(
+    request: Request,
+    response: Response,
+    token: Optional[str] = Depends(oauth2_scheme),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db_dep),
+):
+    raw = token or request.cookies.get(SESSION_COOKIE)
+    if raw:
+        revoke_token(db, decode_token(raw))
+    response.delete_cookie(SESSION_COOKIE, path="/")
+    return {"status": "ok"}
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -445,6 +600,24 @@ async def update_project(
 # FILE UPLOAD / DOWNLOAD
 # ═══════════════════════════════════════════════════════════════
 
+# Uploads are data files (CSV/TSV/TXT/XLSX/...), never active web content.
+_BLOCKED_UPLOAD_SUFFIXES = (
+    ".html", ".htm", ".xhtml", ".shtml", ".svg", ".xml", ".xsl", ".xslt",
+    ".js", ".mjs", ".cjs", ".css", ".php", ".phtml", ".asp", ".aspx", ".jsp", ".jspx",
+    ".cgi", ".pl", ".rb", ".py", ".sh", ".bash", ".ps1", ".bat", ".cmd", ".com",
+    ".exe", ".dll", ".so", ".dylib", ".jar", ".war", ".msi", ".scr", ".vbs", ".vbe",
+    ".wsf", ".hta", ".swf", ".lnk", ".reg", ".apk", ".deb", ".rpm",
+)
+
+
+def _reject_unsafe_upload(rel_path: str) -> None:
+    lower = rel_path.strip().lower()
+    if lower.endswith(_BLOCKED_UPLOAD_SUFFIXES):
+        raise HTTPException(status_code=415, detail="This file type cannot be uploaded")
+    if lower.endswith((".", " ")):
+        raise HTTPException(status_code=400, detail="Invalid file name")
+
+
 @app.post("/upload/{project_id}")
 async def upload_file(
     project_id: str,
@@ -457,13 +630,24 @@ async def upload_file(
     project = db.query(Project).filter(Project.id == project_id, Project.user_id == user.id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    content = await file.read()
     # If the client supplied a relative path (subdirectory + filename), honour it
     # so auxiliary files (e.g. mutilgroup/anova_manual_meta_*.csv) land where the
     # analysis service will later read them. Otherwise fall back to the bare
     # uploaded filename at the project root.
-    rel_path = (path or file.filename or f"{kind}.csv").strip().lstrip("/")
-    save_bytes(str(user.id), str(project.id), rel_path, content)
+    fallback = file.filename.rsplit("/", 1)[-1].rsplit("\\", 1)[-1] or f"{kind}.csv"
+    rel_path = (path or fallback).strip().lstrip("/")
+    _reject_unsafe_upload(rel_path)
+    max_bytes = settings.max_upload_mb * 1024 * 1024
+    quota_bytes = settings.project_quota_mb * 1024 * 1024
+    expected = getattr(file, "size", None) or 0
+    if expected and project_size(str(user.id), str(project.id)) + expected > quota_bytes:
+        raise HTTPException(status_code=413, detail="Project storage quota exceeded")
+    try:
+        save_stream(str(user.id), str(project.id), rel_path, file.file, max_bytes=max_bytes)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=413, detail=str(exc))
 
     # Only register root-level files (no subdirectory) as project path fields.
     # Files saved into a subdirectory are auxiliary results / manual inputs and
@@ -489,25 +673,38 @@ async def upload_file(
 
 @app.get("/files/{file_path:path}")
 async def serve_file(file_path: str, user: User = Depends(get_current_user)):
-    from pathlib import Path
-    from config import get_settings
-    s = get_settings()
-    full = (s.storage_root_path / file_path).resolve()
-    root = s.storage_root_path.resolve()
-    try:
-        full.relative_to(root)
-    except ValueError:
-        raise HTTPException(status_code=403, detail="Access denied")
-    if not full.is_file():
-        raise HTTPException(status_code=404, detail="File not found")
-    parts = file_path.split("/")
-    # Allow shared Example/ files (read-only, accessible to all authenticated users)
-    if parts[0] == "Example":
-        return FileResponse(str(full))
-    # Project files must belong to the authenticated user
+    rel = file_path.replace("\\", "/").lstrip("/")
+    # Shared example files are read-only and accessible to every signed-in user.
+    if rel == "Example" or rel.startswith("Example/"):
+        try:
+            full = resolve_shared_read(rel)
+        except (FileNotFoundError, PermissionError):
+            raise HTTPException(status_code=404, detail="File not found")
+        return _file_response(full)
+
+    parts = rel.split("/")
     if len(parts) < 3 or parts[0] != "projects" or parts[1] != str(user.id):
         raise HTTPException(status_code=403, detail="Access denied")
-    return FileResponse(str(full))
+    try:
+        full = resolve_project_file(str(user.id), parts[2], "/".join(parts[3:]))
+    except (FileNotFoundError, PermissionError):
+        raise HTTPException(status_code=404, detail="File not found")
+    return _file_response(full)
+
+
+def _file_response(path) -> FileResponse:
+    """Serve a stored file inline, except active content which downloads."""
+    active = {".html", ".htm", ".xhtml", ".svg", ".xml", ".js", ".mjs"}
+    headers = {
+        "X-Content-Type-Options": "nosniff",
+        "Cache-Control": "private, no-store",
+    }
+    if path.suffix.lower() in active:
+        return FileResponse(
+            str(path), filename=path.name,
+            content_disposition_type="attachment", headers=headers,
+        )
+    return FileResponse(str(path), headers=headers)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -523,6 +720,17 @@ class IdConvertRequest(BaseModel):
 _IDCONVERT_EXPORTS = "exports/idconvert"
 
 
+def _purge_old_exports(export_dir) -> None:
+    """DATA-09: downloads are one-shot artifacts, not permanent storage."""
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=settings.export_ttl_minutes)
+    for item in export_dir.glob("*.csv"):
+        try:
+            if datetime.fromtimestamp(item.stat().st_mtime, tz=timezone.utc) < cutoff:
+                item.unlink(missing_ok=True)
+        except OSError:
+            logger.warning("Could not remove expired export %s", item.name)
+
+
 @app.post("/idconvert")
 async def idconvert_endpoint(req: IdConvertRequest, user: User = Depends(get_current_user)):
     uid = str(user.id)
@@ -530,6 +738,7 @@ async def idconvert_endpoint(req: IdConvertRequest, user: User = Depends(get_cur
     if req.names:
         names = [n for n in req.names if str(n).strip()]
     elif req.project_id and req.matrix_path:
+        require_project(req.project_id, user)
         from services.common import load_csv
         df = load_csv(uid, req.project_id, req.matrix_path, index_col=0)
         names = [str(n) for n in df.index.tolist()]
@@ -541,9 +750,10 @@ async def idconvert_endpoint(req: IdConvertRequest, user: User = Depends(get_cur
     # Persist full result CSV for download (shared exports dir, auth-gated).
     export_dir = (settings.storage_root_path / _IDCONVERT_EXPORTS)
     export_dir.mkdir(parents=True, exist_ok=True)
+    _purge_old_exports(export_dir)
     token = uuid.uuid4().hex
     pd.DataFrame(
-        [r.get("_csv", {}) for r in result["rows"]],
+        [{k: csv_safe(v) for k, v in r.get("_csv", {}).items()} for r in result["rows"]],
         columns=list(IDCONVERT_CSV_FIELDS),
     ).to_csv(export_dir / f"{token}.csv", index=False)
 
@@ -582,6 +792,8 @@ async def idconvert_download(token: str, user: User = Depends(get_current_user))
 @app.get("/log-stream")
 async def log_stream(user: User = Depends(get_current_user)):
     uid = str(user.id)
+    if not _sse_slots.acquire(blocking=False):
+        raise HTTPException(status_code=503, detail="Too many open streams")
     q: asyncio.Queue = asyncio.Queue()
     log_subscribers.append((uid, q))
 
@@ -601,6 +813,7 @@ async def log_stream(user: User = Depends(get_current_user)):
         finally:
             if (uid, q) in log_subscribers:
                 log_subscribers.remove((uid, q))
+            _sse_slots.release()
 
     return StreamingResponse(
         event_generator(),
@@ -614,8 +827,10 @@ async def task_events(project_id: str, user: User = Depends(get_current_user), d
     project = db.query(Project).filter(Project.id == project_id, Project.user_id == user.id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    if not _sse_slots.acquire(blocking=False):
+        raise HTTPException(status_code=503, detail="Too many open streams")
 
-    q = subscribe()
+    q = subscribe(str(user.id))
 
     async def event_generator():
         try:
@@ -630,6 +845,7 @@ async def task_events(project_id: str, user: User = Depends(get_current_user), d
             pass
         finally:
             unsubscribe(q)
+            _sse_slots.release()
 
     return StreamingResponse(
         event_generator(),
@@ -680,6 +896,7 @@ class ValidationRequest(BaseModel):
 @app.post("/validate")
 async def validate_data(req: ValidationRequest, background_tasks: BackgroundTasks, user: User = Depends(get_current_user)):
     uid = str(user.id)
+    require_project(req.project_id, user)
     if req.upload_mode == PREPROCESS_MODE:
         if not req.matrix_raw_path or not req.nist_path or not req.is_path:
             raise HTTPException(status_code=400, detail="Preprocessing mode requires matrix_raw_path, nist_path, and is_path.")
@@ -704,6 +921,7 @@ class MetaCheckRequest(BaseModel):
 @app.post("/meta-check")
 async def meta_check(req: MetaCheckRequest, background_tasks: BackgroundTasks, user: User = Depends(get_current_user)):
     uid = str(user.id)
+    require_project(req.project_id, user)
     _run_in_background(process_meta_check, req.project_id, uid, req.meta_path)
     return {"status": "processing_meta_scan"}
 
@@ -717,6 +935,7 @@ class MetaSaveRequest(BaseModel):
 @app.post("/save-checked-meta")
 async def apply_meta_changes(req: MetaSaveRequest, background_tasks: BackgroundTasks, user: User = Depends(get_current_user)):
     uid = str(user.id)
+    require_project(req.project_id, user)
     _run_in_background(save_checked_meta, req.project_id, uid, req.meta_path, req.changes)
     return {"status": "saving_meta_changes"}
 
@@ -735,6 +954,7 @@ class FilterRequest(BaseModel):
 @app.post("/matrix-filter")
 async def filter_matrix(req: FilterRequest, user: User = Depends(get_current_user)):
     uid = str(user.id)
+    require_project(req.project_id, user)
     _run_in_background(process_matrix_filtering, req.project_id, uid, req.matrix_path, req.meta_path, req.settings)
     return {"status": "processing_matrix_filtering"}
 
@@ -749,6 +969,7 @@ class NormalizeRequest(BaseModel):
 @app.post("/normalize")
 async def normalize_endpoint(req: NormalizeRequest, user: User = Depends(get_current_user)):
     uid = str(user.id)
+    require_project(req.project_id, user)
     _run_in_background(process_normalization, req.project_id, uid, req.matrix_path, req.meta_path, req.settings)
     return {"status": "processing", "message": "Normalization task started."}
 
@@ -769,6 +990,7 @@ class HeatmapRequest(BaseModel):
 @app.post("/generate-heatmap")
 async def heatmap_endpoint(req: HeatmapRequest, user: User = Depends(get_current_user)):
     uid = str(user.id)
+    require_project(req.project_id, user)
     _run_in_background(
         generate_heatmap_epress, req.project_id, uid, req.matrix_path, req.meta_path, req.settings, req.run_id, req.task_id
     )
@@ -787,6 +1009,7 @@ class HeatmapRenderRequest(BaseModel):
 @app.post("/heatmap/render")
 async def heatmap_render_endpoint(req: HeatmapRenderRequest, user: User = Depends(get_current_user)):
     uid = str(user.id)
+    require_project(req.project_id, user)
     try:
         payload = render_heatmap_html(
             project_id=req.project_id, uid=uid,
@@ -1105,6 +1328,7 @@ class PCARunRequest(BaseModel):
 @app.post("/pca/run")
 async def pca_run(req: PCARunRequest, user: User = Depends(get_current_user)):
     uid = str(user.id)
+    require_project(req.project_id, user)
     try:
         result = run_pca_from_paths(
             matrix_path=req.matrix_path, meta_path=req.meta_path, uid=uid, project_id=req.project_id,
@@ -1138,6 +1362,7 @@ class EmbeddingRunRequest(BaseModel):
 @app.post("/pca/run-umap")
 async def pca_run_umap(req: EmbeddingRunRequest, user: User = Depends(get_current_user)):
     uid = str(user.id)
+    require_project(req.project_id, user)
     try:
         result = run_umap(req.pca_embedding, req.sample_ids, req.metadata, req.metadata_columns, req.params)
         run_id = _resolve_run_id("umap", req.project_id, uid, req.name, req.run_id)
@@ -1155,6 +1380,7 @@ async def pca_run_umap(req: EmbeddingRunRequest, user: User = Depends(get_curren
 @app.post("/pca/run-tsne")
 async def pca_run_tsne(req: EmbeddingRunRequest, user: User = Depends(get_current_user)):
     uid = str(user.id)
+    require_project(req.project_id, user)
     try:
         result = run_tsne(req.pca_embedding, req.sample_ids, req.metadata, req.metadata_columns, req.params)
         run_id = _resolve_run_id("tsne", req.project_id, uid, req.name, req.run_id)
@@ -1177,6 +1403,7 @@ class LoadRunRequest(BaseModel):
 @app.post("/pca/load-run")
 async def pca_load_run(req: LoadRunRequest, user: User = Depends(get_current_user)):
     uid = str(user.id)
+    require_project(req.project_id, user)
     try:
         data = load_run_from_storage(uid, req.project_id, req.data_path)
         return JSONResponse(content=data)
@@ -1208,6 +1435,7 @@ class PLSDARunRequest(BaseModel):
 @app.post("/plsda/run")
 async def plsda_run(req: PLSDARunRequest, user: User = Depends(get_current_user)):
     uid = str(user.id)
+    require_project(req.project_id, user)
     try:
         result = run_plsda_from_paths(
             matrix_path=req.matrix_path, meta_path=req.meta_path, uid=uid, project_id=req.project_id,
@@ -1243,6 +1471,7 @@ class CheckingRequest(BaseModel):
 @app.post("/plsda/run-checking/permutation")
 async def plsda_permutation(req: CheckingRequest, user: User = Depends(get_current_user)):
     uid = str(user.id)
+    require_project(req.project_id, user)
     try:
         result = run_plsda_permutation_checking_from_paths(
             matrix_path=req.matrix_path, meta_path=req.meta_path, uid=uid, project_id=req.project_id,
@@ -1258,6 +1487,7 @@ async def plsda_permutation(req: CheckingRequest, user: User = Depends(get_curre
 @app.post("/plsda/run-checking/cv-anova")
 async def plsda_cvanova(req: CheckingRequest, user: User = Depends(get_current_user)):
     uid = str(user.id)
+    require_project(req.project_id, user)
     try:
         result = run_plsda_cvanova_checking_from_paths(
             matrix_path=req.matrix_path, meta_path=req.meta_path, uid=uid, project_id=req.project_id,
@@ -1273,6 +1503,7 @@ async def plsda_cvanova(req: CheckingRequest, user: User = Depends(get_current_u
 @app.post("/plsda/load-run")
 async def plsda_load_run(req: LoadRunRequest, user: User = Depends(get_current_user)):
     uid = str(user.id)
+    require_project(req.project_id, user)
     try:
         data = load_run_from_storage(uid, req.project_id, req.data_path)
         return JSONResponse(content=data)
@@ -1303,6 +1534,7 @@ class OPLSDARunRequest(BaseModel):
 @app.post("/oplsda/run")
 async def oplsda_run(req: OPLSDARunRequest, user: User = Depends(get_current_user)):
     uid = str(user.id)
+    require_project(req.project_id, user)
     try:
         result = run_oplsda_from_paths(
             matrix_path=req.matrix_path, meta_path=req.meta_path, uid=uid, project_id=req.project_id,
@@ -1338,6 +1570,7 @@ class OPLSDACheckingRequest(BaseModel):
 @app.post("/oplsda/run-checking/permutation")
 async def oplsda_permutation(req: OPLSDACheckingRequest, user: User = Depends(get_current_user)):
     uid = str(user.id)
+    require_project(req.project_id, user)
     try:
         result = run_oplsda_permutation_checking_from_paths(
             matrix_path=req.matrix_path, meta_path=req.meta_path, uid=uid, project_id=req.project_id,
@@ -1353,6 +1586,7 @@ async def oplsda_permutation(req: OPLSDACheckingRequest, user: User = Depends(ge
 @app.post("/oplsda/run-checking/cv-anova")
 async def oplsda_cvanova(req: OPLSDACheckingRequest, user: User = Depends(get_current_user)):
     uid = str(user.id)
+    require_project(req.project_id, user)
     try:
         result = run_oplsda_cvanova_checking_from_paths(
             matrix_path=req.matrix_path, meta_path=req.meta_path, uid=uid, project_id=req.project_id,
@@ -1368,6 +1602,7 @@ async def oplsda_cvanova(req: OPLSDACheckingRequest, user: User = Depends(get_cu
 @app.post("/oplsda/load-run")
 async def oplsda_load_run(req: LoadRunRequest, user: User = Depends(get_current_user)):
     uid = str(user.id)
+    require_project(req.project_id, user)
     try:
         data = load_run_from_storage(uid, req.project_id, req.data_path)
         return JSONResponse(content=data)
@@ -1397,6 +1632,7 @@ class SPLSDARunRequest(BaseModel):
 @app.post("/splsda/run")
 async def splsda_run(req: SPLSDARunRequest, user: User = Depends(get_current_user)):
     uid = str(user.id)
+    require_project(req.project_id, user)
     try:
         result = run_splsda_from_paths(
             matrix_path=req.matrix_path, meta_path=req.meta_path, uid=uid, project_id=req.project_id,
@@ -1419,6 +1655,7 @@ async def splsda_run(req: SPLSDARunRequest, user: User = Depends(get_current_use
 @app.post("/splsda/load-run")
 async def splsda_load_run(req: LoadRunRequest, user: User = Depends(get_current_user)):
     uid = str(user.id)
+    require_project(req.project_id, user)
     try:
         data = load_run_from_storage(uid, req.project_id, req.data_path)
         return JSONResponse(content=data)
@@ -1492,6 +1729,7 @@ class KMeansRunRequest(BaseModel):
 @app.post("/kmeans/run")
 async def kmeans_run(req: KMeansRunRequest, user: User = Depends(get_current_user)):
     uid = str(user.id)
+    require_project(req.project_id, user)
     try:
         result = run_kmeans(
             project_id=req.project_id, uid=uid, name=req.name, input_type=req.input_type,
@@ -1526,6 +1764,7 @@ class KMeansSaveClustersRequest(BaseModel):
 @app.post("/kmeans/save-clusters")
 async def kmeans_save_clusters(req: KMeansSaveClustersRequest, user: User = Depends(get_current_user)):
     uid = str(user.id)
+    require_project(req.project_id, user)
     try:
         meta_path = save_clusters_to_meta(
             project_id=req.project_id, uid=uid, meta_path=req.meta_path,
@@ -1573,6 +1812,7 @@ class SOMRunRequest(BaseModel):
 @app.post("/som/run")
 async def som_run(req: SOMRunRequest, user: User = Depends(get_current_user)):
     uid = str(user.id)
+    require_project(req.project_id, user)
     try:
         result = run_som(
             project_id=req.project_id, uid=uid, name=req.name, input_type=req.input_type,
@@ -1608,6 +1848,7 @@ class SOMSaveClustersRequest(BaseModel):
 @app.post("/som/save-clusters")
 async def som_save_clusters(req: SOMSaveClustersRequest, user: User = Depends(get_current_user)):
     uid = str(user.id)
+    require_project(req.project_id, user)
     try:
         meta_path = save_som_clusters_to_meta(
             project_id=req.project_id, uid=uid, meta_path=req.meta_path,
@@ -1642,6 +1883,7 @@ class DeleteMetaColumnsRequest(BaseModel):
 @app.post("/metadata/delete-columns")
 async def metadata_delete_columns(req: DeleteMetaColumnsRequest, user: User = Depends(get_current_user)):
     uid = str(user.id)
+    require_project(req.project_id, user)
     try:
         result = delete_meta_columns(project_id=req.project_id, uid=uid, meta_path=req.meta_path, column_names=req.column_names)
         return {"status": "ok", **result}
@@ -1661,6 +1903,7 @@ class CreateMetaColumnRequest(BaseModel):
 @app.post("/metadata/create-column")
 async def metadata_create_column(req: CreateMetaColumnRequest, user: User = Depends(get_current_user)):
     uid = str(user.id)
+    require_project(req.project_id, user)
     try:
         result = create_meta_column(
             project_id=req.project_id, uid=uid, meta_path=req.meta_path,
@@ -1681,6 +1924,7 @@ class ReorderGroupsRequest(BaseModel):
 @app.post("/metadata/reorder-groups")
 async def metadata_reorder_groups(req: ReorderGroupsRequest, user: User = Depends(get_current_user)):
     uid = str(user.id)
+    require_project(req.project_id, user)
     try:
         result = reorder_meta_groups(
             project_id=req.project_id, uid=uid,
@@ -1702,6 +1946,7 @@ class RenameMetaColumnRequest(BaseModel):
 @app.post("/metadata/rename-column")
 async def metadata_rename_column(req: RenameMetaColumnRequest, user: User = Depends(get_current_user)):
     uid = str(user.id)
+    require_project(req.project_id, user)
     try:
         result = rename_meta_column(
             project_id=req.project_id, uid=uid, meta_path=req.meta_path,
@@ -1725,6 +1970,7 @@ class StorageDeleteRequest(BaseModel):
 @app.post("/storage/delete")
 async def delete_storage_files(req: StorageDeleteRequest, user: User = Depends(get_current_user)):
     uid = str(user.id)
+    require_project(req.project_id, user)
     deleted = []
     missing = []
     errors = []
@@ -1765,6 +2011,8 @@ if _CLIENT_DIR.exists():
     # Serve individual HTML files at root level (index.html, login.html, etc.)
     @app.get("/{page}.html")
     async def serve_html_page(page: str):
+        if not re.fullmatch(r"[A-Za-z0-9_-]+", page or ""):
+            raise HTTPException(status_code=404, detail="Page not found")
         html_path = _CLIENT_DIR / f"{page}.html"
         if html_path.exists():
             return FileResponse(str(html_path))
@@ -1786,4 +2034,7 @@ if __name__ == "__main__":
     logger.info("Starting FastAPI server (v4 — SQLite)...")
     init_db()
     port = int(os.environ.get("PORT", 7860))
-    uvicorn.run(app, host="0.0.0.0", port=port, reload=False)
+    tls = {}
+    if settings.ssl_certfile and settings.ssl_keyfile:
+        tls = {"ssl_certfile": settings.ssl_certfile, "ssl_keyfile": settings.ssl_keyfile}
+    uvicorn.run(app, host="0.0.0.0", port=port, reload=False, **tls)

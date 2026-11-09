@@ -8,16 +8,18 @@ const API_BASE = window.location.origin.startsWith("http://localhost:5")
     ? "http://localhost:8000"
     : "";  // Same origin when served from backend (port 8000 or tunnel)
 
-// ─── Token Management ──────────────────────────────────────────
-const TOKEN_KEY = "lipidportal_token";
+// ─── Session Management ────────────────────────────────────────
+// The JWT lives in an HttpOnly cookie set by the server. JavaScript never sees
+// it, so an XSS cannot read or exfiltrate the session.
+const TOKEN_KEY = "lipidportal_token"; // legacy: cleared on sight
 const USER_KEY = "lipidportal_user";
 
 export function getToken() {
-    return localStorage.getItem(TOKEN_KEY);
+    return null;
 }
 
-export function setToken(token, user) {
-    localStorage.setItem(TOKEN_KEY, token);
+export function setToken(_token, user) {
+    localStorage.removeItem(TOKEN_KEY);
     localStorage.setItem(USER_KEY, JSON.stringify(user));
 }
 
@@ -36,9 +38,8 @@ export function getStoredUser() {
 }
 
 // ─── Global fetch interceptor ──────────────────────────────────
-// Automatically attach the Bearer token to every fetch call that targets
-// the backend API or file-serving endpoints. Local file fetches (relative
-// paths like ./sidebar.html) are left untouched.
+// Send the HttpOnly session cookie to our own API; never attach credentials
+// to third-party URLs.
 const _originalFetch = window.fetch.bind(window);
 window.fetch = async function (input, init) {
     const url = typeof input === "string" ? input : (input instanceof Request ? input.url : "");
@@ -49,38 +50,23 @@ window.fetch = async function (input, init) {
         url.startsWith("sidebar") ||
         url.endsWith(".html");
 
-    // Mock /storage/delete — no such endpoint in the REST backend;
-    // file cleanup is handled by DELETE /projects/{id}.
-    if (url.includes("/storage/delete")) {
-        return new Response(JSON.stringify({ status: "ok" }), {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-        });
-    }
-
-    if (!isLocalAsset) {
-        const token = getToken();
-        if (token) {
-            init = init || {};
-            const existingHeaders = new Headers(init.headers || (input instanceof Request ? input.headers : {}));
-            if (!existingHeaders.has("Authorization")) {
-                existingHeaders.set("Authorization", `Bearer ${token}`);
-            }
-            init.headers = existingHeaders;
-        }
+    const isOwnApi = !API_BASE || url.startsWith(API_BASE) || url.startsWith("/");
+    if (!isLocalAsset && isOwnApi) {
+        init = init || {};
+        if (!init.credentials) init.credentials = "include";
     }
     return _originalFetch(input, init);
 };
 
 // ─── HTTP Helpers ──────────────────────────────────────────────
 async function apiFetch(path, options = {}) {
-    const token = getToken();
     const headers = { ...(options.headers || {}) };
-    if (token) headers["Authorization"] = `Bearer ${token}`;
     if (options.body && !(options.body instanceof FormData) && !headers["Content-Type"]) {
         headers["Content-Type"] = "application/json";
     }
-    const response = await _originalFetch(`${API_BASE}${path}`, { ...options, headers });
+    const response = await _originalFetch(`${API_BASE}${path}`, {
+        ...options, headers, credentials: "include",
+    });
     if (!response.ok) {
         let detail = response.statusText;
         try {
@@ -160,15 +146,23 @@ export const auth = {
 
 export function onAuthStateChanged(authInstance, callback) {
     const user = getStoredUser();
-    if (user) {
-        callback({
-            uid: user.id,
-            email: user.email,
-            getIdToken: async () => getToken(),
-        });
-    } else {
+    if (!user) {
         callback(null);
+        return () => {};
     }
+    // The cookie is HttpOnly, so ask the server whether the session is still valid.
+    apiFetch("/auth/me")
+        .then((resp) => resp.json())
+        .then((me) => callback({
+            uid: me.id,
+            email: me.email,
+            role_id: me.role_id,
+            getIdToken: async () => getToken(),
+        }))
+        .catch(() => {
+            clearToken();
+            callback(null);
+        });
     return () => {};
 }
 
@@ -192,6 +186,11 @@ export async function createUserWithEmailAndPassword(authInstance, email, passwo
 }
 
 export async function signOut(authInstance) {
+    try {
+        await apiFetch("/auth/logout", { method: "POST" });
+    } catch (_) {
+        // Cookie is cleared server-side on the next expiry anyway.
+    }
     clearToken();
     authListeners.forEach((fn) => fn(null));
 }
@@ -461,9 +460,12 @@ export async function uploadString(refObj, data, format, metadata) {
 }
 
 export async function deleteObject(refObj) {
-    // No dedicated delete-file endpoint — silently succeed.
-    // Project deletion via DELETE /projects/{id} handles bulk cleanup.
-    return;
+    const { projectId, filename, relPath } = _parseStoragePath(refObj.path);
+    if (!projectId) return;
+    await apiFetch("/storage/delete", {
+        method: "POST",
+        body: JSON.stringify({ project_id: projectId, paths: [relPath || filename] }),
+    });
 }
 
 export async function listAll(refObj) {

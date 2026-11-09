@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <title>@@TITLE@@</title>
-<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://unpkg.com/vis-network@10.1.5/standalone/umd/vis-network.min.js" integrity="sha384-GtjYkhwhAE+SrjDGQbQux3taYY5IiPH6XHwwKXF+WdyoI1hp193Dg+3BoQDfF7VH" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
 <style>
   * { box-sizing: border-box; }
   html, body { height: 100%; }
@@ -549,7 +549,7 @@ function buildSelectionTable() {
   let html = '<table><thead><tr><th></th>';
   EXTRA.columns.forEach((c, ci) => {
     const arrow = selSortCol === c ? (selSortDir === 1 ? ' &uarr;' : ' &darr;') : '';
-    html += `<th data-colidx="${ci}" style="cursor:pointer">${c}${arrow}</th>`;
+    html += `<th data-colidx="${ci}" style="cursor:pointer">${escapeXml(c)}${arrow}</th>`;
   });
   html += '</tr></thead><tbody>';
   sortSelRowIdx().forEach(i => {
@@ -561,7 +561,7 @@ function buildSelectionTable() {
       // reaction/enzyme: show in full (mirrors the edge hover text); others truncate
       let s = String(v);
       if (s.length > 80 && c !== 'reaction' && c !== 'enzyme') s = s.substring(0, 80) + '...';
-      html += `<td title="${String(v).replace(/"/g, '&quot;')}">${s}</td>`;
+      html += `<td title="${escapeXml(v)}">${escapeXml(s)}</td>`;
     });
     html += '</tr>';
   });
@@ -595,7 +595,7 @@ function initSelFilters() {
   box.dataset.built = '1';
   let html = '';
   selNumericCols().forEach(c => {
-    html += `<label>${c}: ` +
+    html += `<label>${escapeXml(c)}: ` +
       `<input type="number" step="any" id="${sfId('sflo', c)}" style="width:64px" oninput="applySelFilter()"> &harr; ` +
       `<input type="number" step="any" id="${sfId('sfhi', c)}" style="width:64px" oninput="applySelFilter()"></label>`;
   });
