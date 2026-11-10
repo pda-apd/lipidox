@@ -1,4 +1,4 @@
-# LipidoX demonstration lipidomics dataset (90 samples × 223 lipid features)
+# LipidoX demonstration lipidomics dataset (90 samples × 341 lipid features)
 
 De-identified LC-MS/MS lipidomics data used to demonstrate the LipidoX platform.
 This is the dataset loaded by the **Example** entry in the LipidoX interface.
@@ -8,7 +8,8 @@ This is the dataset loaded by the **Example** entry in the LipidoX interface.
 | File | Content |
 |---|---|
 | `matrix.csv` | The same samples after internal-standard (IS) normalization and NIST SRM 1950-based normalization, rounded to five decimal places. Rows are lipid features, columns are samples. This is the file the interface loads. |
-| `matrix_raw.csv` | Raw lipid intensities for the same samples. Rows are lipid features, columns are samples. Use this file to reproduce the preprocessing steps. |
+| `matrix_raw.csv` | Raw lipid intensities for the same samples, summed per feature before normalization. Rows are lipid features, columns are samples. Use this file to reproduce the preprocessing steps. |
+| `feature_map.csv` | Mapping from the measured species names to the 341 feature names used in the two matrices. |
 | `meta.csv` | Sample annotations. |
 
 ## Samples
@@ -34,13 +35,20 @@ Applied Biomedical Research Center, Phenikaa University.
 
 ## Lipid features
 
-223 features across the following classes: phosphatidylcholine (PC),
-triacylglycerol (TG), lysophosphatidylcholine (LPC), sphingomyelin (SM),
-cholesteryl ester (CE), acylcarnitine, lysophosphatidylethanolamine (LPE), and
-ubiquinol/ubiquinone. Feature names are given as exported by the acquisition
-software; both `PC 32:0` and `PC(O-34:1)` style names occur in this file, which
-is representative of the naming heterogeneity the platform's lipid ID
-conversion module is designed to handle.
+341 features across the following classes: phosphatidylcholine (PC, 66),
+triacylglycerol (TG, 43), lysophosphatidylcholine (LPC, 36),
+phosphatidylethanolamine (PE, 36), sphingomyelin (SM, 33), cholesteryl ester
+(CE, 22), ceramide (Cer, 24), acylcarnitine (CAR, 18),
+phosphatidylinositol (PI, 16), diacylglycerol (DG, 11),
+lysophosphatidylethanolamine (LPE, 8), lactosylceramide (Hex2Cer, 8),
+hexosylceramide (HexCer, 7), trihexosylceramide (Hex3Cer, 5),
+sialylated hexosylceramide (Hex2NeuAcCer, 3), sphingoid base phosphate
+(SPBP, 3), cholesterol (1), and phosphatidylglycerol (PG, 1).
+
+Feature names follow the LipidSig shorthand (`CAR 10:0`, `PC 32:0`,
+`PC O-34:1`, `Cer 39:1;O2`). Measured species that differ only in sn-position
+or isomer annotation are summed into a single feature; `feature_map.csv`
+records which measured names were summed into which feature.
 
 ## How to use
 

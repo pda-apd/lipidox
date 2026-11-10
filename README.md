@@ -56,13 +56,14 @@ pins the exact versions installed in the container image.
 
 ## Demonstration dataset
 
-`backend/example_seed/Example/Normal_vs_CHB/` contains the dataset used in the
-manuscript and the dataset loaded by the **Example** entry in the interface:
+`backend/example_seed/Example/Normal_vs_CHB/` contains the dataset loaded by the
+**Example** entry in the interface:
 
 | File | Content |
 |---|---|
-| `matrix.csv` | internal-standard and NIST-normalized intensities, 223 features × 90 samples (loaded by the interface) |
-| `matrix_raw.csv` | the same samples before normalization, 223 features × 90 samples |
+| `matrix.csv` | internal-standard and NIST-normalized intensities, 341 features × 90 samples (loaded by the interface) |
+| `matrix_raw.csv` | the same samples before normalization, 341 features × 90 samples |
+| `feature_map.csv` | mapping from the measured species names to the 341 feature names |
 | `meta.csv` | sample annotations (age, sex, AST, ALT, RBC, HGB, WBC, group) |
 | `README.md` | data documentation, including the ethics approvals |
 
