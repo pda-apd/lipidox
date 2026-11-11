@@ -27,7 +27,7 @@ Dockerfile                single-container image (Python 3.12)
 | Operating system(s) | Platform independent (Docker); Linux, macOS, Windows (Python) |
 | Programming language | Python 3.12 (backend), JavaScript (frontend) |
 | Other requirements | Docker 20+, or Python 3.12 with the packages in `backend/requirements.txt`. The pathway / GATOM / lipid-reaction network module additionally requires R with the LipidSigR package; it is disabled automatically when `Rscript` is not available. |
-| License | MIT for the source code; CC BY 4.0 for both demonstration datasets (see `LICENSE` and the `LICENSE.txt` in each dataset folder) |
+| License | MIT for the source code; CC0 1.0 for both demonstration datasets (see `LICENSE` and the `LICENSE.txt` in each dataset folder) |
 
 ## Run with Docker
 
@@ -121,7 +121,7 @@ Both datasets are de-identified. The ethics approvals are listed in the
 ## Licensing and citation
 
 The source code is released under the MIT License. The two demonstration
-datasets in `backend/example_seed/Example/` are released under CC BY 4.0 (see
+datasets in `backend/example_seed/Example/` are released under CC0 1.0 (see
 the `LICENSE.txt` in each dataset folder). Citation metadata is provided in
 `CITATION.cff`.
 If you use LipidoX in published work, please cite the manuscript and the

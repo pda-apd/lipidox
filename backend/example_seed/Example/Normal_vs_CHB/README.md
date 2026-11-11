@@ -75,4 +75,4 @@ de-identified.
 
 ## License
 
-CC BY 4.0. See `LICENSE.txt`.
+CC0 1.0. See `LICENSE.txt`.
