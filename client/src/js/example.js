@@ -11,9 +11,14 @@ const storage = getStorage();
 
 const DATASETS = {
     normal_vs_chb: {
-        projectName: "example_normal_vs_chb",
+        projectName: "example_lipidomics_90x223",
         matrixPath: "Example/Normal_vs_CHB/matrix.csv",
         metaPath:   "Example/Normal_vs_CHB/meta.csv",
+    },
+    normal_vs_chb_341: {
+        projectName: "example_lipidomics_90x341",
+        matrixPath: "Example/Normal_vs_CHB_341/matrix.csv",
+        metaPath:   "Example/Normal_vs_CHB_341/meta.csv",
     },
     gse136434: {
         projectName: "example_gse136434",
@@ -36,6 +41,7 @@ onAuthStateChanged(auth, (user) => {
     if (!user) return;
     renderUserMenu(user);
     document.getElementById("btn-load-normal_vs_chb").onclick = () => loadExample("normal_vs_chb", user);
+    document.getElementById("btn-load-normal_vs_chb_341").onclick = () => loadExample("normal_vs_chb_341", user);
     document.getElementById("btn-load-gse136434").onclick = () => loadExample("gse136434", user);
     document.getElementById("btn-load-gse308711").onclick = () => loadExample("gse308711", user);
     document.getElementById("btn-load-olink_cardiometabolic").onclick = () => loadExample("olink_cardiometabolic", user);
