@@ -264,7 +264,7 @@ async def _security_headers(request, call_next):
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' "
         "https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com; "
         "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
-        "img-src 'self' data: blob:; font-src 'self' data: https://cdnjs.cloudflare.com; "
+        "img-src 'self' data: blob: https://cdn.haitrieu.com; font-src 'self' data: https://cdnjs.cloudflare.com; "
         "connect-src 'self' http://localhost:8000 http://127.0.0.1:8000; "
         "frame-ancestors 'none'; base-uri 'self'; object-src 'none'",
     )
