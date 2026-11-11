@@ -147,6 +147,11 @@
                                 <td>S-plot: \(p_i=\text{cov}(x_i,t_{\text{pred}})\), \(p_{\text{corr}}=\rho(x_i,t_{\text{pred}})\) (Spearman/Pearson). VIP: \(\text{VIP}_j=\sqrt{p\cdot\frac{\sum_a w_{ja}^2\,\text{SSY}_a}{\sum_a\text{SSY}_a}}\). Permutation + CV-ANOVA validation. Combined table merges VIP with LogFC + FDR.</td>
                             </tr>
                             <tr>
+                                <td class="module">sPLS-DA</td>
+                                <td><span class="pkg">mixOmics::splsda</span> (via rpy2)</td>
+                                <td>Sparse feature selection (\(keepX\) per component); scores, loadings, \(R^2X\) and VIP per component.</td>
+                            </tr>
+                            <tr>
                                 <td class="module">PCA/UMAP/t-SNE</td>
                                 <td><span class="pkg">sklearn.decomposition.PCA</span>, <span class="pkg">umap-learn</span>, <span class="pkg">sklearn.manifold.TSNE</span></td>
                                 <td>Scores, loadings, explained variance ratios. Group order follows the saved metadata ranking.</td>
@@ -167,9 +172,29 @@
                                 <td>GSEA: ES/NES/FDR on a ranked list. ORA: hypergeometric test. Dot plot (size = % Feature, color = \(-\log_{10}\text{FDR}\)) and gene-set network.</td>
                             </tr>
                             <tr>
-                                <td class="module">Clustering &amp; HCA</td>
-                                <td><span class="pkg">sklearn.cluster.KMeans</span>, <span class="pkg">minisom.MiniSom</span>, <span class="pkg">scipy.spatial.distance.pdist</span>, <span class="pkg">plotly.figure_factory</span></td>
-                                <td>K-means on PCA scores (labels saveable as metadata); SOM grid + BMU assignment; HCA dendrogram + clustered heatmap.</td>
+                                <td class="module">ID conversion</td>
+                                <td><span class="pkg">pygoslin</span> 2.0, LipidSigR annotation snapshots (LIPID MAPS, LION, GATOM)</td>
+                                <td>Goslin species/molecular/SN levels, sum formula, mass, category and class; exact match against LIPID MAPS and LION IDs. Mapping statistics and unmapped names are reported.</td>
+                            </tr>
+                            <tr>
+                                <td class="module">Lipid set enrichment</td>
+                                <td><span class="pkg">gseapy.prerank</span> (LSEA), <span class="pkg">scipy.stats.fisher_exact</span> (ORA), LIPID MAPS/LION characteristic sets</td>
+                                <td>LSEA: preranked ES/NES/FDR over lipid-characteristic sets (rank by log2FC or signed FDR, minimum set size \(n_\text{lipid}\), default 2). ORA: Fisher exact test per characteristic value. At least 50% of features must map to lipid IDs. Dot plot and set network reuse the gene-enrichment layout.</td>
+                            </tr>
+                            <tr>
+                                <td class="module">Network</td>
+                                <td><span class="pkg">LipidSigR</span> (Rscript), <span class="pkg">vis-network</span></td>
+                                <td>Pathway-activity, GATOM and lipid-reaction networks computed in R; node and edge tables rendered as an interactive graph. Disabled when R/LipidSigR is not installed.</td>
+                            </tr>
+                            <tr>
+                                <td class="module">Clustering</td>
+                                <td><span class="pkg">sklearn.cluster.KMeans</span>, <span class="pkg">minisom.MiniSom</span></td>
+                                <td>K-means on PCA scores (labels saveable as metadata); SOM grid + BMU assignment.</td>
+                            </tr>
+                            <tr>
+                                <td class="module">Heatmap &amp; HCA</td>
+                                <td><span class="pkg">scipy.spatial.distance.pdist</span>, <span class="pkg">plotly.figure_factory</span></td>
+                                <td>Interactive heatmap with optional row/column dendrograms, selectable distance and clustering scope (samples, features or both), feature or sample autoscaling, and per-sample or group-mean views.</td>
                             </tr>
                             <tr>
                                 <td class="module">Classification</td>
