@@ -2,7 +2,7 @@
 
 LipidoX is a self-hosted web platform for LC-MS/MS lipidomics data processing,
 statistical analysis, and interactive visualization. This repository holds the
-source code (v1.0.0) released with the accompanying manuscript.
+source code (v1.1.0) released with the accompanying manuscript.
 
 ## Repository layout
 
@@ -125,7 +125,7 @@ datasets in `backend/example_seed/Example/` are released under CC0 1.0 (see
 the `LICENSE.txt` in each dataset folder). Citation metadata is provided in
 `CITATION.cff`.
 If you use LipidoX in published work, please cite the manuscript and the
-versioned release (v1.0.0).
+versioned release (v1.1.0).
 
 The MIT License covers the source code. The names "LipidoX" and the project logo
 are not licensed for use in derivative product names or endorsement. Annotation

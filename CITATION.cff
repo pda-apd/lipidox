@@ -2,14 +2,14 @@ cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 title: "LipidoX: a web platform for LC-MS/MS lipidomics data processing, statistical analysis and visualization"
 abstract: "LipidoX is a self-hosted web platform for LC-MS/MS lipidomics data processing, statistical analysis and interactive visualization. The repository contains the platform source code and two demonstration datasets built from the same 90 human plasma samples: a 223-feature panel used in the manuscript analysis and an extended 341-feature panel for the LipidSigR-backed enrichment and network modules."
-version: 1.0.0
+version: 1.1.0
 date-released: 2026-11-11
 license: MIT
 type: software
 repository-code: "https://github.com/pda-apd/lipidox"
 identifiers:
   - type: url
-    value: "https://github.com/pda-apd/lipidox/releases/tag/v1.0.0"
+    value: "https://github.com/pda-apd/lipidox/releases/tag/v1.1.0"
     description: "Versioned release"
 keywords:
   - lipidomics
