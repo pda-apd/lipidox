@@ -1145,7 +1145,7 @@ function renderSPlot(run, pair) {
         y: traceRows.map((r) => r.p_corr),
         text: traceRows.map((r) => r.feature),
         mode: "markers",
-        type: "scattergl",
+        type: "scatter",
         name,
         marker: {
             color,

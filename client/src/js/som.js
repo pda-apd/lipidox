@@ -359,7 +359,7 @@ function renderPcaPreview(pcaRun) {
     grouped.forEach((pts, lbl) => {
         const isSelected = !hasFilter || state.selectedLabels.has(lbl);
         traces.push({
-            type: "scattergl", mode: "markers",
+            type: "scatter", mode: "markers",
             x: pts.map((p) => p.x), y: pts.map((p) => p.y),
             text: pts.map((p) => p.sample_id),
             hovertemplate: "<b>%{text}</b><br>x=%{x:.3f}<br>y=%{y:.3f}<extra>" + sanitize(lbl) + "</extra>",
@@ -937,7 +937,7 @@ function renderPlot() {
 
             if (finitePoints.length) {
                 traces.push({
-                    type: "scattergl",
+                    type: "scatter",
                     mode: "markers",
                     x: finitePoints.map((point) => point.x),
                     y: finitePoints.map((point) => point.y),
@@ -973,7 +973,7 @@ function renderPlot() {
 
             if (missingPoints.length) {
                 traces.push({
-                    type: "scattergl",
+                    type: "scatter",
                     mode: "markers",
                     x: missingPoints.map((point) => point.x),
                     y: missingPoints.map((point) => point.y),
@@ -1001,7 +1001,7 @@ function renderPlot() {
             const isHL = isLabelHighlighted(lbl);
             const isDim = hasHighlightSelection() && !isHL;
             traces.push({
-                type: "scattergl", mode: "markers",
+                type: "scatter", mode: "markers",
                 x: pts.map((p) => p.x), y: pts.map((p) => p.y),
                 text: pts.map((p) => p.sample_id),
                 hovertemplate: "<b>%{text}</b><br>x=%{x:.3f}<br>y=%{y:.3f}<extra>" + sanitize(lbl) + "</extra>",

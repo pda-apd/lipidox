@@ -540,7 +540,7 @@ function renderPlot({ preserveRanges = true } = {}) {
 
             if (finitePoints.length) {
                 traces.push({
-                    type: "scattergl",
+                    type: "scatter",
                     mode: "markers",
                     x: finitePoints.map((point) => point.x),
                     y: finitePoints.map((point) => point.y),
@@ -576,7 +576,7 @@ function renderPlot({ preserveRanges = true } = {}) {
 
             if (missingPoints.length) {
                 traces.push({
-                    type: "scattergl",
+                    type: "scatter",
                     mode: "markers",
                     x: missingPoints.map((point) => point.x),
                     y: missingPoints.map((point) => point.y),
@@ -599,7 +599,7 @@ function renderPlot({ preserveRanges = true } = {}) {
             const isHighlighted = isLabelHighlighted(label);
             const isDimmed = hasHighlightSelection() && !isHighlighted;
             traces.push({
-                type: "scattergl",
+                type: "scatter",
                 mode: "markers",
                 x: points.map((point) => point.x),
                 y: points.map((point) => point.y),
